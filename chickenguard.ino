@@ -1,32 +1,18 @@
-/*
-	TODO:	Optimize current consuption
-			see https://docs.espressif.com/projects/esp-idf/en/latest/api-reference/system/sleep_modes.html#
-
- */
 
 #include <WiFi.h>
 #include <DNSServer.h>
 #include <ESPmDNS.h>
-#include <WiFiClient.h>
 #include <WebServer.h>
 #include <U8x8lib.h>
-#include "rom/rtc.h"  
-#include <esp_wifi.h>
-#include <esp_bt.h>
-#include <esp_bt_main.h>
-#include <esp_spi_flash.h>
 
 #include "driver/mcpwm.h"
 #include "soc/mcpwm_reg.h"
 #include "soc/mcpwm_struct.h"
 
-#include "clock.h"
 #include "index.h"
 #include "ctrl.h"
 
-#define BUZZER_PIN      26
-#define BUTTON1_PIN     27
-#define BUTTON2_PIN     22
+#include "wificonf.h"
 
 #define STATE_DEFAULT                0
 #define STATE_WIFI_INIT              1
@@ -46,12 +32,14 @@
 #define UP_BUTTON_PIN      27
 #define DOWN_BUTTON_PIN    35
 
-
 #define TOP_SWITCH_BIT     0
 #define BOTTOM_SWITCH_BIT  1
 #define STOP_SWITCH_BIT    2
 #define UP_BUTTON_BIT      3
 #define DOWN_BUTTON_BIT    4
+
+#define ECHO_TRIGGER_PIN  13
+#define ECHO_PIN          14
 
 // OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
@@ -80,8 +68,23 @@ static int ctrl = 0;
 
 WebServer server(80);
 
-ClockClass rtc(0);
 
+float get_distance() {
+  float duration=0;
+  float distance=0;
+
+  digitalWrite(ECHO_TRIGGER_PIN, LOW);
+  delayMicroseconds(2);
+  noInterrupts();
+  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(ECHO_TRIGGER_PIN, LOW);
+  duration = pulseIn(ECHO_PIN, HIGH); // Erfassung - Dauer in Mikrosekunden
+  interrupts();
+
+  distance = (duration / 2) / 29.1; // Distanz in CM
+  return(distance);
+}
 
 void printLocalTime()
 {
@@ -159,8 +162,7 @@ void handleRoot()
 
 void handleGetDate()
 { 
-  String s = rtc.toString() + " Reboot Count:" 
-    + 0;
+  String s = "";
   server.send(200, "text/plane", s);
 }
 
@@ -264,9 +266,10 @@ void do_wifi(void)
 
 void do_buttons(void)
 {
-  static uint32_t timeout = 0;
+  static unsigned long timeout = 0;
   
-  if((rtc.tickMs() - timeout) > 50) {
+  if((millis() - timeout) > 50) {
+    /*
     if(digitalRead(TOP_SWITCH_PIN) == 0){
       buttons |= 1 << TOP_SWITCH_BIT;
     } else {
@@ -282,6 +285,7 @@ void do_buttons(void)
     } else {
       buttons &= ~(1 << STOP_SWITCH_BIT);
     }
+    */
     if(digitalRead(UP_BUTTON_PIN) == 1){
       buttons |= 1 << UP_BUTTON_BIT;
     } else {
@@ -292,7 +296,7 @@ void do_buttons(void)
     } else {
       buttons &= ~(1 << DOWN_BUTTON_BIT);
     }
-    timeout = rtc.tickMs();      
+    timeout = millis();      
   }
 /*
   String s = "";
@@ -319,6 +323,8 @@ void do_buttons(void)
 
 void do_display(void)
 {
+  static unsigned long timeout = 0;
+  
   switch(state) {
     case STATE_DEFAULT:
     case STATE_WIFI_CLIENT_CONNECTED:
@@ -333,11 +339,18 @@ void do_display(void)
     case STATE_DEFAULT:   
     case STATE_WIFI_CLIENT_CONNECTED:
     case STATE_WIFI_ACTIVE: {      
-      if(rtc.tick()) {
-        u8x8.drawString(0, 2, rtc.timeToCStr());
-        char buf[20];
-        sprintf(buf, "State: %d", state);
+      if((millis() - timeout) > 1000) {
+        char buf[30];
+        time_t ltime;
+        time(&ltime);      
+        tm * ptm = localtime(&ltime);
+        strftime(buf, 32, "%H:%M:%S", ptm);        
+        u8x8.drawString(0, 2, buf);        
+        sprintf(buf, "State: %d  ", state);
         u8x8.drawString(0, 4, buf);
+        sprintf(buf, "Dist: %.2f  ", get_distance());
+        u8x8.drawString(0, 6, buf);
+        timeout = millis();
       }   
       break;
     }    
@@ -347,7 +360,7 @@ void do_display(void)
 void do_ntp()
 {
     static int ntp_state = 0;
-    static uint32_t timeout = 0;
+    static unsigned long timeout = 0;
 
     switch(state) {
       case STATE_WIFI_CLIENT_CONNECTED:
@@ -366,9 +379,9 @@ void do_ntp()
             break;
         }
         case 2: {
-            if((rtc.tickMs() - timeout) > 1000) {
+            if((millis() - timeout) > 1000) {
               //printLocalTime();
-              timeout = rtc.tickMs();
+              timeout = millis();
             }
             break;
         }        
@@ -378,7 +391,7 @@ void do_ntp()
 void do_ctrl(void)
 {
   static int mot_state = 0;
-  static uint32_t timeout = 0;
+  static unsigned long timeout = 0;
   static int last_ctrl = 0;
   static int d = 1;
   static int duty = 0;
@@ -424,7 +437,7 @@ void do_ctrl(void)
       break;
 
     case 1: // STOP
-      if((rtc.tickMs() - timeout) > 1) {
+      if((millis() - timeout) > 1) {
         if(duty > 0) {
           duty--;
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
@@ -443,12 +456,12 @@ void do_ctrl(void)
           }          
           
         }        
-        timeout = rtc.tickMs();
+        timeout = millis();
       }
       break;
    
     case 100:
-      if((rtc.tickMs() - timeout) > 30) {
+      if((millis() - timeout) > 30) {
         //Serial.println("Mot active");
         mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
 
@@ -463,7 +476,7 @@ void do_ctrl(void)
             d = 1;
           }
         }
-        timeout = rtc.tickMs();
+        timeout = millis();
       }
       break;
   }    
@@ -480,11 +493,17 @@ void setup(void)
   pinMode(MOT_DIR_PIN, OUTPUT);
   digitalWrite(MOT_DIR_PIN, 0);
 
+/*
   pinMode(TOP_SWITCH_PIN, INPUT);
   pinMode(BOTTOM_SWITCH_PIN, INPUT);
   pinMode(STOP_SWITCH_PIN, INPUT);
+*/
   pinMode(UP_BUTTON_PIN, INPUT);
   pinMode(DOWN_BUTTON_PIN, INPUT);
+
+  pinMode(ECHO_TRIGGER_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
   
   Serial.begin(115200);
   Serial.println("");
@@ -499,21 +518,19 @@ void setup(void)
   log_i("Info");
   log_w("Warning"); 
   log_e("Error");
-*/
-  pinMode(BUTTON1_PIN, INPUT);
-  pinMode(BUTTON2_PIN, INPUT);
-   
+*/   
   u8x8.begin();
   u8x8.setFont(u8x8_font_chroma48medium8_r);
   u8x8.clear();
 
- 
-
+  ssid = TEST_ssid;
+  pw = TEST_pw;
+  
   state = STATE_WIFI_CLIENT_INIT;
 }
 
 void loop(void)
-{
+{ 
   do_buttons();
   do_ctrl();
   do_ntp();
