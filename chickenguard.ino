@@ -392,17 +392,17 @@ void do_ctrl(void)
 {
   static int mot_state = 0;
   static unsigned long timeout = 0;
-  static int last_ctrl = 0;
-  static int d = 1;
+  static int last_ctrl = 0;  
   static int duty = 0;
   static uint32_t last_buttons = 0;
+  float distance = 0;
 
   if(ctrl != last_ctrl) {
     mot_state = 1;
     last_ctrl = ctrl;
   }
 
-
+/*
   if(buttons != last_buttons) {
     if(buttons & (1 << UP_BUTTON_BIT)) {
       ctrl = 1;
@@ -419,7 +419,7 @@ void do_ctrl(void)
     ctrl = 0;
     last_ctrl = 0;
   }
-
+*/
   switch(mot_state) {
     case 0: // INIT
       mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOT_PWM_PIN);    //Set GPIO as PWM0A, to which Motor is connected
@@ -439,46 +439,59 @@ void do_ctrl(void)
     case 1: // STOP
       if((millis() - timeout) > 1) {
         if(duty > 0) {
-          duty--;
+          duty -= 5;
+          if(duty < 0) {
+            duty = 0;
+          }
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
           //Serial.println("Mot down");
         } else {
           if(ctrl == 1) {
-            digitalWrite(MOT_DIR_PIN, 0);
-            d = 1;
-            //Serial.println("Mot dir left");
-            mot_state = 100;
-          } else if(ctrl == 2) {
-            d = 1; 
+            digitalWrite(MOT_DIR_PIN, 0);            
+            mot_state = 2;
+          } else if(ctrl == 2) {            
             digitalWrite(MOT_DIR_PIN, 1);
-            mot_state = 100;
-            //Serial.println("Mot dir right");
+            mot_state = 3;            
           }          
           
         }        
         timeout = millis();
       }
       break;
-   
-    case 100:
-      if((millis() - timeout) > 30) {
-        //Serial.println("Mot active");
-        mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
 
-        if(d == 1 && duty < 100) {
-          duty++;
-          if(duty == 100) {
-            d = 0;
-          }          
-        } else if(d == 0 && duty > 20) {
-          duty--;
-          if(duty == 20) {
-            d = 1;
+    case 2: 
+      distance = get_distance();
+
+      if(distance > 5) {      
+        if((millis() - timeout) > 30) {        
+          mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
+  
+          if(duty < 100) {
+            duty++;
           }
-        }
-        timeout = millis();
+          timeout = millis();       
+        }  
+      } else {      
+        ctrl = 0;
       }
       break;
+
+    case 3:
+      distance = get_distance();
+
+      if(distance < 20) {      
+        if((millis() - timeout) > 30) {        
+          mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
+  
+          if(duty < 100) {
+            duty++;
+          }
+          timeout = millis();       
+        }  
+      } else {      
+        ctrl = 0;
+      }     
+      break;      
   }    
 }
 
