@@ -24,13 +24,13 @@
 
 #define MOT_DRV_PIN        26
 #define MOT_DIR_PIN        25
-#define MOT_PWM_PIN        5
+#define MOT_PWM_PIN        27
 
 #define TOP_SWITCH_PIN     13
 #define BOTTOM_SWITCH_PIN  34
-#define STOP_SWITCH_PIN    14
-#define UP_BUTTON_PIN      27
-#define DOWN_BUTTON_PIN    35
+#define STOP_SWITCH_PIN    0
+#define UP_BUTTON_PIN      5
+#define DOWN_BUTTON_PIN    17
 
 #define TOP_SWITCH_BIT     0
 #define BOTTOM_SWITCH_BIT  1
