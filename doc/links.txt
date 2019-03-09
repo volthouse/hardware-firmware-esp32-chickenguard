@@ -2,8 +2,14 @@
 https://eckstein-shop.de/V-TEC-6V-6mm-Antriebwelle-DC-Motor-Gleichstrom-Turbine-Getriebe-Motor-40-RPM
 https://eckstein-shop.de/V-TEC-6V-Mini-20D-DC-Motor-Gleichstrom-Getriebe-Motor-Stirnradgetriebe-40-RPM
 
+https://www.voelkner.de/products/113377/Modelcraft-Hochleistungsgetriebemotor-6V-RB350050-22H22R-501.html
+Modelcraft Hochleistungsgetriebemotor 6V RB350050-22H22R 50:1
+
 - Berechnung des Drehmoments
 https://www.precisionmicrodrives.com/content/torque-calculations-for-gearmotor-applications/
 
 -Captive Portal
 https://github.com/esp8266/Arduino/blob/master/libraries/DNSServer/examples/CaptivePortalAdvanced/CaptivePortalAdvanced.ino
+
+-DCF77
+https://github.com/MakeMagazinDE/DCF77/blob/master/Main.c
