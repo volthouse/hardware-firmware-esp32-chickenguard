@@ -11,6 +11,7 @@
 
 #include "index.h"
 #include "ctrl.h"
+#include "dcf.h"
 
 #include "wificonf.h"
 
@@ -327,7 +328,7 @@ void do_display(void)
   
   switch(state) {
     case STATE_DEFAULT:
-    case STATE_WIFI_CLIENT_CONNECTED:
+    case STATE_WIFI_CLIENT_CONNECTED:      
       u8x8.drawString(0, 0, "Chicken Guard");
       break; 
     case STATE_WIFI_AP_INIT:
@@ -516,7 +517,7 @@ void setup(void)
 
   pinMode(ECHO_TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
+  digitalWrite(ECHO_TRIGGER_PIN, HIGH);  
   
   Serial.begin(115200);
   Serial.println("");
@@ -536,8 +537,12 @@ void setup(void)
   u8x8.setFont(u8x8_font_chroma48medium8_r);
   u8x8.clear();
 
+  u8x8.drawString(0, 0, "Starting...");
+
   ssid = TEST_ssid;
   pw = TEST_pw;
+
+  dcf_setup();
   
   state = STATE_WIFI_CLIENT_INIT;
 }
@@ -546,7 +551,8 @@ void loop(void)
 { 
   do_buttons();
   do_ctrl();
-  do_ntp();
+ // do_ntp();
+  do_dcf_decoding();
   do_display(); 
   do_wifi();  
 }
