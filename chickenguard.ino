@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <U8x8lib.h>
 
+#include "EEPROM.h"
 #include "driver/mcpwm.h"
 #include "soc/mcpwm_reg.h"
 #include "soc/mcpwm_struct.h"
@@ -12,8 +13,6 @@
 #include "index.h"
 #include "ctrl.h"
 #include "dcf.h"
-
-#include "wificonf.h"
 
 #define STATE_DEFAULT                0
 #define STATE_WIFI_INIT              1
@@ -42,6 +41,8 @@
 #define ECHO_TRIGGER_PIN  13
 #define ECHO_PIN          14
 
+#define MAGIC_NO 0x4855484E
+
 // OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
 //U8X8_SSD1306_128X64_NONAME_4W_SW_SPI u8x8(/* clock=*/ 15, /* data=*/ 4, /* cs=*/ 12, /* dc=*/ 14, /* reset=*/ 23);
@@ -52,6 +53,7 @@ IPAddress apIP(192, 168, 4, 1);
 DNSServer dnsServer;
 const char *myHostname = "chicken";
 static int server_initialized = 0;
+WebServer server(80);
 
 // NTP
 const char* ntpServer = "pool.ntp.org";
@@ -60,15 +62,67 @@ const int daylightOffset_sec = 3600;
 
 // APP
 static uint32_t state = 0;
-static String ssid = "";
-static String pw = "";
-static uint32_t buttons = 0;
 
 // Control
 static int ctrl = 0;
+static uint32_t buttons = 0;
 
-WebServer server(80);
+// Settings
+#pragma pack(1)
+struct {
+  unsigned int magicNo;
+  char ssid[100];
+  char pw[100];
+  unsigned long openTime;
+  unsigned long closeTime;
+  int maxOpenDistance;
+  int minOpenDistance;
+} settings;
+#pragma pop
 
+void init_settings(void)
+{
+  if (!EEPROM.begin(sizeof(settings)))
+  {
+    Serial.println("failed to initialise EEPROM");
+  }
+  
+  EEPROM.readBytes(0, &settings, sizeof(settings));
+
+  if(MAGIC_NO != settings.magicNo) {
+    memset(&settings, 0, sizeof(settings));
+    settings.magicNo = MAGIC_NO;
+    Serial.println("settings cleared");
+  } else {
+    Serial.println(settings.ssid);
+    Serial.println(settings.pw);
+  }
+}
+
+void save_settings(void)
+{
+  EEPROM.writeBytes(0, &settings, sizeof(settings));
+  EEPROM.commit();
+}
+
+void init_server(void)
+{
+    if(!server_initialized) {
+      dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
+      dnsServer.start(DNS_PORT, "*", apIP);      
+           
+      server.on("/", handleRoot);  
+      server.on("/setWifi", handleSetWifi);
+      server.on("/getApList", handleGetApList);
+      server.on("/setCtrl", handleSetCtrl);
+      server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
+      server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
+      server.onNotFound ( handleNotFound );    
+      server.begin();
+      server_initialized = true;
+      Serial.println("HTTP server started");
+    }
+}
 
 float get_distance() {
   float duration=0;
@@ -167,15 +221,35 @@ void handleGetDate()
   server.send(200, "text/plane", s);
 }
 
+void handleGetApList(void)
+{
+  String s;
+  
+  int n = WiFi.scanNetworks();
+  
+  if (n == 0) {
+    s = "";
+  } else {    
+    for (int i = 0; i < n; ++i) {      
+      s += "<option>" + WiFi.SSID(i) + "</option>";      
+    }
+  }  
+  server.send(200, "text/plane", s);
+}
+
 void handleSetWifi()
 { 
   Serial.println("setWifi");
-  ssid = server.arg("ssid");
-  pw = server.arg("pw");
+  String ssid = server.arg("ssid");
+  String pw = server.arg("pw");
 
-  Serial.println(ssid);
-  Serial.println(pw);
+  //Serial.println(ssid);
+  //Serial.println(pw);
 
+  strncpy(settings.ssid, ssid.c_str(), sizeof(settings.ssid));
+  strncpy(settings.pw, pw.c_str(), sizeof(settings.pw));
+  save_settings();
+  
   state = STATE_WIFI_CLIENT_INIT;
 }
 
@@ -188,25 +262,6 @@ void handleSetCtrl(void)
   sprintf(buf, "setCtrl: %d", ctrl);
   
   Serial.println(buf);
-}
-
-void init_server(void)
-{
-    if(!server_initialized) {
-      dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
-      dnsServer.start(DNS_PORT, "*", apIP);      
-           
-      server.on("/", handleRoot);  
-      server.on("/setWifi", handleSetWifi);
-      server.on("/getDate", handleGetDate);
-      server.on("/setCtrl", handleSetCtrl);
-      server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
-      server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
-      server.onNotFound ( handleNotFound );    
-      server.begin();
-      server_initialized = true;
-      Serial.println("HTTP server started");
-    }
 }
 
 void do_wifi(void)
@@ -228,7 +283,7 @@ void do_wifi(void)
     case STATE_WIFI_CLIENT_INIT:      
       WiFi.disconnect();
       WiFi.mode(WIFI_STA);
-      WiFi.begin(ssid.c_str(), pw.c_str());
+      WiFi.begin(settings.ssid, settings.pw);
       init_server();
       state = STATE_WIFI_CLIENT_CONNECTING;
       break;
@@ -517,7 +572,9 @@ void setup(void)
 
   pinMode(ECHO_TRIGGER_PIN, OUTPUT);
   pinMode(ECHO_PIN, INPUT);
-  digitalWrite(ECHO_TRIGGER_PIN, HIGH);  
+  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
+
+  
   
   Serial.begin(115200);
   Serial.println("");
@@ -539,12 +596,15 @@ void setup(void)
 
   u8x8.drawString(0, 0, "Starting...");
 
-  ssid = TEST_ssid;
-  pw = TEST_pw;
-
   dcf_setup();
   
-  state = STATE_WIFI_CLIENT_INIT;
+  init_settings();
+
+  if(strlen(settings.ssid) > 0 && strlen(settings.pw) > 0) {
+    state = STATE_WIFI_CLIENT_INIT;  
+  } else {
+    state = STATE_WIFI_AP_INIT;
+  }  
 }
 
 void loop(void)

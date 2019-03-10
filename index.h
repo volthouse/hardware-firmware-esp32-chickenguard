@@ -135,7 +135,7 @@ button{
   right: 0;
 }
 </style>
-<body>
+<body onLoad = "fillApList()">
 
 <h1>Chicken Guard Setup</h1>
 <table>
@@ -143,7 +143,7 @@ button{
     <th>SSID</th>
   </tr>
   <tr>
-    <td><input type="text" name="ssid" id="ssid" value = ""></td>    
+    <td><select name="ssid" id = "ssid" style="width: 100%"><option>None</option></select></td>    
   </tr>
   <tr>
     <th>Password</th>    
@@ -192,16 +192,15 @@ setInterval(function() {
     }
 }, 1000); //1000mSeconds update rate
 
-function getDate() {  
+function fillApList() {  
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {
       var date = new Date();
-      document.getElementById("SYSDate").innerHTML = date.toString();
-      document.getElementById("ESPDate").innerHTML = this.responseText;
+      document.getElementById("ssid").innerHTML = this.responseText;
     }
   };
-  xhttp.open("GET", "getDate", true);
+  xhttp.open("GET", "getApList", true);
   xhttp.send();
 }
 </script>
