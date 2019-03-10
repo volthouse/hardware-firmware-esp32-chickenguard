@@ -59,6 +59,18 @@ button{
     width:100%; 
 }.q{float: right;width: 64px;text-align: right;}
 
+label{
+    border:0;
+    border-radius:0.3rem;
+    background-color:#1fa3ec;
+    color:#fff;
+    line-height:2.4rem;
+    font-size:1.2rem;
+    width:100%; 
+    height:100%;
+    text-align: center;    
+}
+
 .flipswitch {
   position: relative;
   width: 100%;
@@ -134,21 +146,49 @@ button{
 .flipswitch-cb:checked + .flipswitch-label .flipswitch-switch {
   right: 0;
 }
+
+.grid-container {
+  display: grid;
+  grid-template-columns: auto auto auto;
+  width :300px
+}
+
+.grid-container > div {  
+  text-align: center;
+  padding: 5px 0;
+  width :100px
+}
+
+.item1 {
+  grid-row-start: 1;
+  grid-row-end: 4  ;  
+}
+
+.item2 {
+  grid-column-start: 2;
+  grid-column-end: 2;
+} 
+
+.item3 {
+  grid-column-start: 2;
+  grid-column-end: 2;
+} 
+
+.item4   {
+  grid-column-start: 2;
+  grid-column-end: 2;
+} 
+
 </style>
 <body>
 
 <h1>Steuerung</h1>
-<table>  
-  <tr>
-    <td><button type="submit" id="MOT1" onclick="setCtrl(1)">Motor Drehrichtung Links</button></td>
-  </tr>  
-  <tr>
-    <td><button type="submit" id="MOT2" onclick="setCtrl(2)">Motor Drehrichtung rechts</button></td>
-  </tr>  
-  <tr>
-    <td><button type="submit" id="MOT3" onclick="setCtrl(3)">Motor Aus</button></td>
-  </tr>
-</table>
+<div class="grid-container">
+  <div class="item1"><label id="state"></label></div>
+  <div class="item2"><button type="submit" id="CTRL1" onclick="setCtrl(1)">AUF</button></div>
+  <div class="item3"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>  
+  <div class="item4"><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">Stop</button></div>
+</div>
 <script>
 
 function setCtrl(data) {
@@ -161,27 +201,17 @@ function setCtrl(data) {
 
 setInterval(function() {
     // Call a function repetatively
-    // getDate();
-    
-    if(document.getElementById("dateFlipswitch").checked) {
-        var date = new Date();
-        var currentDate = date.toISOString().slice(0,10);
-        var currentTime = date.toTimeString().split(' ')[0];        
-        document.getElementById("nowdate").value = currentDate;
-        document.getElementById("nowtime").value = currentTime;
-    }
+     getState();    
 }, 1000); //1000mSeconds update rate
 
-function getDate() {  
+function getState() {  
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      var date = new Date();
-      document.getElementById("SYSDate").innerHTML = date.toString();
-      document.getElementById("ESPDate").innerHTML = this.responseText;
+    if (this.readyState == 4 && this.status == 200) { 
+      document.getElementById("state").innerHTML = this.responseText;
     }
   };
-  xhttp.open("GET", "getDate", true);
+  xhttp.open("GET", "getState", true);
   xhttp.send();
 }
 </script>

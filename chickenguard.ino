@@ -22,6 +22,14 @@
 #define STATE_WIFI_CLIENT_CONNECTING 5
 #define STATE_WIFI_CLIENT_CONNECTED  6
 
+#define DOOR_STATE_OPEN   0
+#define DOOR_STATE_CLOSED 1
+#define DOOR_STATE_TRAVEL 2
+
+#define MOT_CTRL_STOP 0
+#define MOT_CTRL_DOWN 1
+#define MOT_CTRL_UP   2
+
 #define MOT_DRV_PIN        26
 #define MOT_DIR_PIN        25
 #define MOT_PWM_PIN        27
@@ -64,8 +72,11 @@ const int daylightOffset_sec = 3600;
 static uint32_t state = 0;
 
 // Control
+static int doorState = 0;
 static int ctrl = 0;
 static uint32_t buttons = 0;
+
+static int test_enabled = 1;
 
 // Settings
 #pragma pack(1)
@@ -97,6 +108,10 @@ void init_settings(void)
     Serial.println(settings.ssid);
     Serial.println(settings.pw);
   }
+
+  settings.maxOpenDistance = 35;
+  settings.minOpenDistance = 8;
+  
 }
 
 void save_settings(void)
@@ -114,6 +129,7 @@ void init_server(void)
       server.on("/", handleRoot);  
       server.on("/setWifi", handleSetWifi);
       server.on("/getApList", handleGetApList);
+      server.on("/getState", handleGetState);      
       server.on("/setCtrl", handleSetCtrl);
       server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
       server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
@@ -215,9 +231,19 @@ void handleRoot()
   }
 }
 
-void handleGetDate()
+void handleGetState()
 { 
-  String s = "";
+  String s;
+
+  if(DOOR_STATE_OPEN == doorState) {
+    s = "Auf";
+  } else if(DOOR_STATE_CLOSED == doorState) {
+    s = "ZU"; 
+  } else if(DOOR_STATE_TRAVEL == doorState) {
+    s = "Fährt";
+  } else {
+    s = "?";
+  }
   server.send(200, "text/plane", s);
 }
 
@@ -255,6 +281,9 @@ void handleSetWifi()
 
 void handleSetCtrl(void)
 {  
+
+  test_enabled = 0;
+  
   ctrl = server.arg("data").toInt();
 
   char buf[50];
@@ -458,6 +487,16 @@ void do_ctrl(void)
     last_ctrl = ctrl;
   }
 
+  distance = get_distance();
+
+  if(distance < (settings.minOpenDistance + 1)) {
+    doorState =  DOOR_STATE_CLOSED;
+  } else if(distance > (settings.maxOpenDistance - 1)) {
+    doorState = DOOR_STATE_OPEN;   
+  } else {
+    doorState = DOOR_STATE_TRAVEL;
+  }
+
 /*
   if(buttons != last_buttons) {
     if(buttons & (1 << UP_BUTTON_BIT)) {
@@ -476,6 +515,9 @@ void do_ctrl(void)
     last_ctrl = 0;
   }
 */
+
+  
+
   switch(mot_state) {
     case 0: // INIT
       mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOT_PWM_PIN);    //Set GPIO as PWM0A, to which Motor is connected
@@ -502,10 +544,10 @@ void do_ctrl(void)
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
           //Serial.println("Mot down");
         } else {
-          if(ctrl == 1) {
+          if(ctrl == MOT_CTRL_UP) {
             digitalWrite(MOT_DIR_PIN, 0);            
             mot_state = 2;
-          } else if(ctrl == 2) {            
+          } else if(ctrl == MOT_CTRL_DOWN) {            
             digitalWrite(MOT_DIR_PIN, 1);
             mot_state = 3;            
           }          
@@ -515,40 +557,61 @@ void do_ctrl(void)
       }
       break;
 
-    case 2: 
-      distance = get_distance();
-
-      if(distance > 5) {      
+    case 2:
+      if(distance > settings.minOpenDistance) {      
         if((millis() - timeout) > 30) {        
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
   
-          if(duty < 100) {
+          if(duty < 80) {
             duty++;
           }
           timeout = millis();       
-        }  
-      } else {      
-        ctrl = 0;
+        }
+      } else if(distance > (settings.minOpenDistance + 5)) {
+        duty = 50;
+      } else {
+        ctrl = 0;        
       }
       break;
 
     case 3:
-      distance = get_distance();
-
-      if(distance < 20) {      
+      if(distance < settings.maxOpenDistance) {      
         if((millis() - timeout) > 30) {        
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);       
   
-          if(duty < 100) {
+          if(duty < 80) {
             duty++;
           }
           timeout = millis();       
-        }  
-      } else {      
-        ctrl = 0;
+        }
+      } else if(distance < (settings.maxOpenDistance - 5)) {
+        duty = 50;
+      } else {
+        ctrl = 0;        
       }     
       break;      
-  }    
+  }   
+}
+
+void do_test(void)
+{
+
+  static unsigned long timeout = 0;
+
+  if((test_enabled & (millis() - timeout) > 4000)) {
+
+    if(doorState == DOOR_STATE_CLOSED) {
+      float distance = get_distance();
+      Serial.println(distance);
+      ctrl = 1;
+    } else if(doorState == DOOR_STATE_OPEN) {
+      float distance = get_distance();
+      Serial.println(distance);
+      ctrl = 2;
+    }
+
+    timeout = millis();
+  }  
 }
 
 void setup(void)
@@ -609,6 +672,7 @@ void setup(void)
 
 void loop(void)
 { 
+  do_test();
   do_buttons();
   do_ctrl();
  // do_ntp();
