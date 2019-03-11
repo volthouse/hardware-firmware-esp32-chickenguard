@@ -139,16 +139,6 @@ Text Notes 4650 3250 0    50   ~ 0
 GPIO22 SCL
 Text Notes 4650 3350 0    50   ~ 0
 GPIO21 SDA
-Text Label 2850 2450 0    50   ~ 0
-MOT_DRV
-Text Label 2850 2550 0    50   ~ 0
-MOT_DIR
-Text Label 2850 2350 0    50   ~ 0
-MOT_PWM
-Text Label 2850 2050 0    50   ~ 0
-DIST_TRIGGER
-Text Label 2850 2250 0    50   ~ 0
-DIST_ECHO
 Text Label 5600 2850 0    50   ~ 0
 UP_BUTTON
 Text Label 5600 2750 0    50   ~ 0
@@ -202,8 +192,6 @@ Wire Wire Line
 	9400 2050 8950 2050
 Wire Wire Line
 	8950 2050 8950 1700
-Text Label 2850 2850 0    50   ~ 0
-LUMINANCE
 $Comp
 L Connector:Screw_Terminal_01x16 J3
 U 1 1 5C8286D7
@@ -290,12 +278,6 @@ Wire Wire Line
 Wire Wire Line
 	5450 2750 6650 2750
 Wire Wire Line
-	6650 2450 6650 2550
-Wire Wire Line
-	6650 2550 6850 2550
-Wire Wire Line
-	5450 2450 6650 2450
-Wire Wire Line
 	6750 1650 6750 1750
 Wire Wire Line
 	6750 1850 6850 1850
@@ -308,23 +290,7 @@ Connection ~ 6750 1750
 Wire Wire Line
 	6750 1750 6750 1850
 Wire Wire Line
-	6650 1750 6650 1950
-Wire Wire Line
-	6650 1950 6750 1950
-Wire Wire Line
 	5450 1750 6650 1750
-Wire Wire Line
-	6750 1950 6750 2050
-Wire Wire Line
-	6750 2150 6850 2150
-Connection ~ 6750 1950
-Wire Wire Line
-	6750 1950 6850 1950
-Wire Wire Line
-	6850 2050 6750 2050
-Connection ~ 6750 2050
-Wire Wire Line
-	6750 2050 6750 2150
 Wire Notes Line
 	5500 3500 5500 1350
 Wire Notes Line
@@ -372,20 +338,14 @@ F 3 "~" H 3900 5100 50  0001 C CNN
 	1    3900 5100
 	1    0    0    -1  
 $EndComp
-Text Label 5550 5050 0    50   ~ 0
-3V3
 Wire Wire Line
 	5350 4950 5750 4950
 Text Label 5550 4950 0    50   ~ 0
 GND
-Text Notes 4000 5200 0    50   ~ 0
-10 M1DIR
 Text Notes 4000 5100 0    50   ~ 0
 9 M1PWM
-Text Notes 4000 5000 0    50   ~ 0
-8 M2DIR
 Text Notes 4000 4850 0    50   ~ 0
-7 MW2PWM
+7 M1DIR
 Text Notes 4800 5050 0    50   ~ 0
 VCC
 Text Notes 4800 4950 0    50   ~ 0
@@ -405,9 +365,7 @@ Wire Notes Line
 Wire Notes Line
 	3550 4600 5500 4600
 Wire Wire Line
-	2600 2550 2600 5200
-Wire Wire Line
-	3700 5200 2600 5200
+	2600 2550 2600 4850
 Wire Wire Line
 	2400 2350 2400 5100
 Wire Wire Line
@@ -15622,12 +15580,208 @@ Wire Wire Line
 	2300 2250 2300 2950
 Wire Wire Line
 	1750 3050 2700 3050
-Text Label 2850 2950 0    50   ~ 0
-DCF77
 Wire Wire Line
 	3600 2950 2800 2950
 Wire Wire Line
 	2800 2950 2800 3150
 Wire Wire Line
 	1750 3150 2800 3150
+Wire Wire Line
+	3700 4850 2600 4850
+$Comp
+L Device:R_Network08 RN1
+U 1 1 5C86D958
+P 9400 3100
+F 0 "RN1" H 9780 3146 50  0000 L CNN
+F 1 "10K" H 9780 3055 50  0000 L CNN
+F 2 "Resistor_THT:R_Array_SIP9" V 9875 3100 50  0001 C CNN
+F 3 "http://www.vishay.com/docs/31509/csc.pdf" H 9400 3100 50  0001 C CNN
+	1    9400 3100
+	1    0    0    -1  
+$EndComp
+$Comp
+L power:+5V #PWR01
+U 1 1 5C86D9D9
+P 9000 2800
+F 0 "#PWR01" H 9000 2650 50  0001 C CNN
+F 1 "+5V" H 9015 2973 50  0000 C CNN
+F 2 "" H 9000 2800 50  0001 C CNN
+F 3 "" H 9000 2800 50  0001 C CNN
+	1    9000 2800
+	1    0    0    -1  
+$EndComp
+Wire Wire Line
+	9000 2900 9000 2800
+$Comp
+L Device:Jumper_NO_Small JP1
+U 1 1 5C86FC67
+P 9000 3500
+F 0 "JP1" V 9000 3453 50  0001 R CNN
+F 1 "Jumper_NO_Small" V 9045 3452 50  0001 R CNN
+F 2 "" H 9000 3500 50  0001 C CNN
+F 3 "~" H 9000 3500 50  0001 C CNN
+	1    9000 3500
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Jumper_NO_Small JP2
+U 1 1 5C86FD2A
+P 9100 3500
+F 0 "JP2" V 9100 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9145 3548 50  0001 L CNN
+F 2 "" H 9100 3500 50  0001 C CNN
+F 3 "~" H 9100 3500 50  0001 C CNN
+	1    9100 3500
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Jumper_NO_Small JP3
+U 1 1 5C86FD50
+P 9200 3500
+F 0 "JP3" V 9200 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9245 3548 50  0001 L CNN
+F 2 "" H 9200 3500 50  0001 C CNN
+F 3 "~" H 9200 3500 50  0001 C CNN
+	1    9200 3500
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Jumper_NO_Small JP4
+U 1 1 5C86FD78
+P 9300 3500
+F 0 "JP4" V 9300 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9345 3548 50  0001 L CNN
+F 2 "" H 9300 3500 50  0001 C CNN
+F 3 "~" H 9300 3500 50  0001 C CNN
+	1    9300 3500
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Jumper_NO_Small JP5
+U 1 1 5C86FDA4
+P 9400 3500
+F 0 "JP5" V 9400 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9445 3548 50  0001 L CNN
+F 2 "" H 9400 3500 50  0001 C CNN
+F 3 "~" H 9400 3500 50  0001 C CNN
+	1    9400 3500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	9000 3300 9000 3400
+Wire Wire Line
+	9100 3300 9100 3400
+Wire Wire Line
+	9200 3300 9200 3400
+Wire Wire Line
+	9300 3300 9300 3400
+Wire Wire Line
+	9400 3300 9400 3400
+Wire Wire Line
+	9000 3600 9000 3700
+Wire Wire Line
+	9000 3700 8350 3700
+Wire Wire Line
+	9100 3600 9100 3800
+Wire Wire Line
+	9100 3800 8350 3800
+Wire Wire Line
+	9200 3600 9200 3900
+Wire Wire Line
+	9200 3900 8350 3900
+Wire Wire Line
+	9300 3600 9300 4000
+Wire Wire Line
+	9300 4000 8350 4000
+Wire Wire Line
+	9400 3600 9400 4100
+Wire Wire Line
+	9400 4100 8350 4100
+Text Label 8350 3700 0    50   ~ 0
+DTRIG_TSWITCH
+Text Label 2850 2050 0    50   ~ 0
+DTRIG_TSWITCH
+Text Label 2850 2250 0    50   ~ 0
+DECHO_BSWITCH
+Text Label 2850 2350 0    50   ~ 0
+MOT_PWM
+Text Label 2850 2450 0    50   ~ 0
+MOT_DRV
+Text Label 2850 2550 0    50   ~ 0
+MOT_DIR
+Text Label 2850 2850 0    50   ~ 0
+LUMINANCE
+Text Label 2850 2950 0    50   ~ 0
+DCF77
+Text Label 8350 3800 0    50   ~ 0
+DECHO_BSWITCH
+Text Label 8350 3900 0    50   ~ 0
+STOP_SWITCH
+Text Label 8350 4000 0    50   ~ 0
+DOWN_BUTTON
+Text Label 8350 4100 0    50   ~ 0
+UP_BUTTON
+$Comp
+L Device:Jumper_NO_Small JP?
+U 1 1 5C89459F
+P 9500 3500
+F 0 "JP?" V 9500 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9545 3548 50  0001 L CNN
+F 2 "" H 9500 3500 50  0001 C CNN
+F 3 "~" H 9500 3500 50  0001 C CNN
+	1    9500 3500
+	0    1    1    0   
+$EndComp
+$Comp
+L Device:Jumper_NO_Small JP?
+U 1 1 5C8945BC
+P 9600 3500
+F 0 "JP?" V 9600 3548 50  0001 L CNN
+F 1 "Jumper_NO_Small" V 9645 3548 50  0001 L CNN
+F 2 "" H 9600 3500 50  0001 C CNN
+F 3 "~" H 9600 3500 50  0001 C CNN
+	1    9600 3500
+	0    1    1    0   
+$EndComp
+Wire Wire Line
+	9500 3300 9500 3400
+Wire Wire Line
+	9600 3300 9600 3400
+Wire Wire Line
+	9500 3600 9500 4200
+Wire Wire Line
+	9500 4200 8350 4200
+Wire Wire Line
+	9600 3600 9600 4300
+Wire Wire Line
+	9600 4300 8350 4300
+Wire Wire Line
+	9700 3300 9700 4400
+Wire Wire Line
+	9700 4400 8350 4400
+Text Label 8350 4400 0    50   ~ 0
+DCF77
+Wire Wire Line
+	6750 1850 6750 1950
+Wire Wire Line
+	6750 1950 6850 1950
+Connection ~ 6750 1850
+Wire Wire Line
+	6850 2050 6750 2050
+Wire Wire Line
+	6650 1750 6650 2050
+Wire Wire Line
+	6750 2050 6750 2150
+Wire Wire Line
+	6750 2150 6850 2150
+Connection ~ 6750 2050
+Wire Wire Line
+	6750 2050 6650 2050
+Wire Wire Line
+	6750 2150 6750 2250
+Wire Wire Line
+	6750 2250 6850 2250
+Connection ~ 6750 2150
+Wire Wire Line
+	5450 2450 6850 2450
 $EndSCHEMATC
