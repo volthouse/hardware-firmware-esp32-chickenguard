@@ -1,4 +1,4 @@
-const char MAIN_page[] PROGMEM = R"=====(
+const char SETUP_page[] PROGMEM = R"=====(
 <!DOCTYPE html>
 <html>
 <style>
@@ -154,6 +154,25 @@ button{
   <tr>
     <td><button type="submit" onclick="setWifi()">Submit</button></td>
   </tr>
+  
+  
+  <tr>
+    <th>Max Travel Duration UP (ms)</th>
+  </tr>
+  <tr>
+    <td><input name="maxTravelUpDuration" id="maxTravelUpDuration" value=""></td>
+  </tr>
+  <tr>
+    <th>Max Travel Duration DOWN (ms)</th>
+  </tr>
+  <tr>
+    <td><input name="maxTravelDownDuration" id="maxTravelDownDuration" value=""></td>
+  </tr>
+  <tr>  
+  <tr>
+    <td><button type="submit" onclick="setCtrlSettings()">Submit</button></td>
+  </tr>
+  
 </table>
 <script>
 
@@ -175,6 +194,16 @@ function setWifi() {
   
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setWifi", true);
+  xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  xhttp.send(s); 
+}
+
+function setCtrlSettings() {    
+  var s = "maxTravelUpDuration=" + document.getElementById("maxTravelUpDuration").value;
+  s += "&maxTravelDownDuration=" + document.getElementById("maxTravelDownDuration").value;  
+  
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("POST", "setCtrlSettings", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   xhttp.send(s); 
 }
