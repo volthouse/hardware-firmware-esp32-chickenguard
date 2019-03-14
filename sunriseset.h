@@ -3,7 +3,7 @@ typedef struct _sunriseset_t {
     int set;
 } sunriseset_t;
 
-const g_sun_rise_set[] = {
+const sunriseset_t g_sun_rise_set[] = {
     {30600, 59160},
     {30600, 59220},
     {30540, 59280},
@@ -369,4 +369,4 @@ const g_sun_rise_set[] = {
     {30600, 58980},
     {30600, 59040},
     {30600, 59100},
-}
+};

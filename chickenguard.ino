@@ -49,13 +49,12 @@
 #define UP_BUTTON_BIT      3
 #define DOWN_BUTTON_BIT    4
 
-#define ECHO_TRIGGER_PIN  13
-#define ECHO_PIN          14
 
 #define MAGIC_NO 0x4855484E
 
 // OLED
 U8X8_SSD1306_128X64_NONAME_SW_I2C m_u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
+
 //U8X8_SSD1306_128X64_NONAME_4W_SW_SPI m_u8x8(/* clock=*/ 15, /* data=*/ 4, /* cs=*/ 12, /* dc=*/ 14, /* reset=*/ 23);
 
 // Net
@@ -141,23 +140,6 @@ void init_server(void)
       m_server_initialized = true;
       Serial.println("HTTP m_server started");
     }
-}
-
-float get_distance() {
-  float duration=0;
-  float distance=0;
-
-  digitalWrite(ECHO_TRIGGER_PIN, LOW);
-  delayMicroseconds(2);
-  noInterrupts();
-  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(ECHO_TRIGGER_PIN, LOW);
-  duration = pulseIn(ECHO_PIN, HIGH); // Erfassung - Dauer in Mikrosekunden
-  interrupts();
-
-  distance = (duration / 2) / 29.1; // Distanz in CM
-  return(distance);
 }
 
 void printLocalTime()
@@ -433,9 +415,7 @@ void do_display(void)
         strftime(buf, 32, "%H:%M:%S", ptm);
         m_u8x8.drawString(0, 2, buf);
         sprintf(buf, "State: %d  ", m_app_state);
-        m_u8x8.drawString(0, 4, buf);
-        sprintf(buf, "Dist: %.2f  ", get_distance());
-        m_u8x8.drawString(0, 6, buf);
+        m_u8x8.drawString(0, 4, buf);        
         timeout = millis();
       }
       break;
@@ -458,19 +438,19 @@ void do_ntp()
     }
 
     switch(ntp_state) {
-        case 1: {
-            configTime(m_gmt_offset_sec, m_daylight_offset_sec, m_ntp_server);
-            printLocalTime();
-            ntp_state++;
-            break;
+      case 1: {
+        configTime(m_gmt_offset_sec, m_daylight_offset_sec, m_ntp_server);
+        printLocalTime();
+        ntp_state++;
+        break;
+      }
+      case 2: {
+        if((millis() - timeout) > 1000) {
+          //printLocalTime();
+          timeout = millis();
         }
-        case 2: {
-            if((millis() - timeout) > 1000) {
-              //printLocalTime();
-              timeout = millis();
-            }
-            break;
-        }
+        break;
+      }
     }
 }
 
@@ -482,23 +462,13 @@ void do_ctrl(void)
   static int duty = 0;
   static int last_buttons = 0;
   static int last_time_ctrl = 0;
-  float distance = 0;
-  
+    
   if(m_ctrl != last_ctrl) {
     mot_state = 1;
     last_ctrl = m_ctrl;    
   }
-
-  distance = get_distance();
-
-  if(distance < (settings.minOpenDistance + 1)) {
-    m_door_state =  DOOR_STATE_CLOSED;
-  } else if(distance > (settings.maxOpenDistance - 1)) {
-    m_door_state = DOOR_STATE_OPEN;
-  } else {    
-    m_door_state = DOOR_STATE_TRAVEL;
-  }
-
+  
+  
   if(m_time_ctrl != last_time_ctrl) {
     m_ctrl = last_time_ctrl;
     last_time_ctrl = m_time_ctrl;
@@ -543,12 +513,13 @@ void do_ctrl(void)
             duty = 0;
           }
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
-          //Serial.println("Mot down");
-        if(m_ctrl == CTRL_OPEN) {} 
-        else {          
-            digitalWrite(MOT_DIR_PIN, 0);          } else if(m_ctrl == CTRL_CLOSE) {
-            mot_state = 2;          
-            digitalWrite(MOT_DIR_PIN, 1);            mot_state = 3;
+          
+          if(m_ctrl == CTRL_OPEN) {        
+            digitalWrite(MOT_DIR_PIN, 0);
+            mot_state = 2;                    
+          } else if(m_ctrl == CTRL_CLOSE) {            
+            digitalWrite(MOT_DIR_PIN, 1);
+            mot_state = 3;
           }
 
         }
@@ -557,7 +528,7 @@ void do_ctrl(void)
       break;
 
     case 2:
-      if(distance > settings.minOpenDistance) {
+      if(true) {
         if((millis() - timeout) > 30) {
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
 
@@ -565,15 +536,12 @@ void do_ctrl(void)
             duty++;
           }
           timeout = millis();
-        }
-      } else if(distance > (settings.minOpenDistance + 5)) {
-        duty = 50;
-      m_ctrl = 0;} 
-      else {        
-      }      break;
+        }      
+      }
+      break;
 
     case 3:
-      if(distance < settings.maxOpenDistance) {
+      if(true) {
         if((millis() - timeout) > 30) {
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
 
@@ -582,17 +550,14 @@ void do_ctrl(void)
           }
           timeout = millis();
         }
-      } else if(distance < (settings.maxOpenDistance - 5)) {
-        duty = 50;
-      m_ctrl = 0;} 
-      else {        
-      }      break;
+      }
+      break;
   }
 }
 
 void do_sunriseset_ctrl(void)
-{   
-    sunriseset_t *sunriseset = NULL; 
+{       
+    const sunriseset_t *sunriseset = NULL; 
     time_t ltime;
     time(&ltime);
     tm * ptm = localtime(&ltime);
@@ -611,12 +576,12 @@ void do_sunriseset_ctrl(void)
         m_time_ctrl = CTRL_OPEN;
     } else if (t > sunriseset->set) {
         m_time_ctrl = CTRL_CLOSE;
-    }    
+    } 
 }
 
 void do_test(void)
 {
-
+/*
   static unsigned long timeout = 0;
 
   if((m_test_enabled & (millis() - timeout) > 4000)) {
@@ -624,12 +589,14 @@ void do_test(void)
       float distance = get_distance();
       m_ctrl = 1;
       Serial.println(distance);      
-    } else if(m_door_state == DOOR_STATE_OPEN) {      float distance = get_distance();
+    } else if(m_door_state == DOOR_STATE_OPEN) {      
+      float distance = get_distance();
       m_ctrl = 2;
       Serial.println(distance);      
     }
     timeout = millis();
   }
+*/
 }
 
 void setup(void)
@@ -650,12 +617,6 @@ void setup(void)
 */
   pinMode(UP_BUTTON_PIN, INPUT);
   pinMode(DOWN_BUTTON_PIN, INPUT);
-
-  pinMode(ECHO_TRIGGER_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-  digitalWrite(ECHO_TRIGGER_PIN, HIGH);
-
-
 
   Serial.begin(115200);
   Serial.println("");
