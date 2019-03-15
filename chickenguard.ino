@@ -37,6 +37,15 @@
 #define MOT_DIR_PIN        25
 #define MOT_PWM_PIN        27
 
+#define MOT_DIR_OPEN       0
+#define MOT_DIR_CLOSE      1
+
+#define MOT_CTRL_INIT      0
+#define MOT_CTRL_STOP      1
+#define MOT_CTRL_IDLE      2
+#define MOT_CTRL_OPEN      3
+#define MOT_CTRL_CLOSE     4
+
 #define TOP_SWITCH_PIN     13
 #define BOTTOM_SWITCH_PIN  34
 #define STOP_SWITCH_PIN    0
@@ -86,17 +95,13 @@ struct {
   unsigned int magicNo;
   char ssid[100];
   char pw[100];
-  unsigned long openTime;
-  unsigned long closeTime;
-  int maxOpenDistance;
-  int minOpenDistance;
+  int maxTravelTime;
 } settings;
 #pragma pop
 
 void init_settings(void)
 {
-  if (!EEPROM.begin(sizeof(settings)))
-  {
+  if (!EEPROM.begin(sizeof(settings))) {
     Serial.println("failed to initialise EEPROM");
   }
 
@@ -105,15 +110,12 @@ void init_settings(void)
   if(MAGIC_NO != settings.magicNo) {
     memset(&settings, 0, sizeof(settings));
     settings.magicNo = MAGIC_NO;
+    settings.maxTravelTime = 1000; 
     Serial.println("settings cleared");
   } else {
     Serial.println(settings.ssid);
     Serial.println(settings.pw);
   }
-
-  settings.maxOpenDistance = 35;
-  settings.minOpenDistance = 8;
-
 }
 
 void save_settings(void)
@@ -142,7 +144,7 @@ void init_server(void)
     }
 }
 
-void printLocalTime()
+void printLocalTime(void)
 {
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
@@ -171,7 +173,7 @@ String toStringIp(IPAddress ip) {
   return res;
 }
 
-boolean captivePortal() {
+boolean captivePortal(void) {
   if (!isIp(m_server.hostHeader()) && m_server.hostHeader() != (String(myHostname)+".local")) {
     Serial.print("Request redirected to captive portal");
     m_server.sendHeader("Location", String("http://") + toStringIp(m_server.client().localIP()), true);
@@ -182,7 +184,7 @@ boolean captivePortal() {
   return false;
 }
 
-void handleNotFound()
+void handleNotFound(void)
 {
   if (captivePortal()) { // If caprive portal redirect instead of displaying the error page.
     return;
@@ -205,7 +207,7 @@ void handleNotFound()
   m_server.send ( 404, "text/plain", message );
 }
 
-void handleRoot()
+void handleRoot(void)
 {
   if(m_app_state != STATE_WIFI_CLIENT_CONNECTED) {
     String s = SETUP_page;
@@ -216,7 +218,7 @@ void handleRoot()
   }
 }
 
-void handleGetState()
+void handleGetState(void)
 {
   String s;
 
@@ -229,6 +231,34 @@ void handleGetState()
   } else {
     s = "?";
   }
+  m_server.send(200, "text/plane", s);
+}
+
+void handleGetNextDateTimeCtrl(void)
+{
+  String s;
+
+  const sunriseset_t *sunriseset = NULL;
+  time_t ltime;
+  time(&ltime);
+  tm * ptm = localtime(&ltime);
+
+  int day = ptm->tm_yday;
+
+  if (day < 0 || day > ARRAYSIZE(g_sun_rise_set)) {
+      day = 364 / 2;
+  }
+
+  sunriseset = &g_sun_rise_set[day];
+
+  int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
+
+  if (t > sunriseset->rise) {
+      s = sunriseset->rise / 3600 + ":" + (sunriseset->rise / 3600) % 60;
+  } else if (t > sunriseset->set) {
+      s = sunriseset->set / 3600 + ":" + (sunriseset->set / 3600) % 60;
+  }
+  
   m_server.send(200, "text/plane", s);
 }
 
@@ -248,7 +278,7 @@ void handleGetApList(void)
   m_server.send(200, "text/plane", s);
 }
 
-void handleSetWifi()
+void handleSetWifi(void)
 {
   Serial.println("setWifi");
   String ssid = m_server.arg("ssid");
@@ -269,10 +299,10 @@ void handleSetCtrl(void)
 
   m_test_enabled = 0;
 m_ctrl = m_server.arg("data").toInt();
-  
+
   char buf[50];
 sprintf(buf, "setCtrl: %d", m_ctrl);
-  
+
   Serial.println(buf);
 }
 
@@ -336,8 +366,7 @@ void do_buttons(void)
 {
   static unsigned long timeout = 0;
 
-  if((millis() - timeout) > 50) {
-    /*
+  if((millis() - timeout) > 50) {    
     if(digitalRead(TOP_SWITCH_PIN) == 0){
       m_buttons |= 1 << TOP_SWITCH_BIT;
     } else {
@@ -353,7 +382,7 @@ void do_buttons(void)
     } else {
       m_buttons &= ~(1 << STOP_SWITCH_BIT);
     }
-    */
+    
     if(digitalRead(UP_BUTTON_PIN) == 1){
       m_buttons |= 1 << UP_BUTTON_BIT;
     } else {
@@ -415,7 +444,7 @@ void do_display(void)
         strftime(buf, 32, "%H:%M:%S", ptm);
         m_u8x8.drawString(0, 2, buf);
         sprintf(buf, "State: %d  ", m_app_state);
-        m_u8x8.drawString(0, 4, buf);        
+        m_u8x8.drawString(0, 4, buf);
         timeout = millis();
       }
       break;
@@ -423,7 +452,7 @@ void do_display(void)
   }
 }
 
-void do_ntp()
+void do_ntp(void)
 {
     static int ntp_state = 0;
     static unsigned long timeout = 0;
@@ -456,41 +485,77 @@ void do_ntp()
 
 void do_ctrl(void)
 {
-  static int mot_state = 0;
   static unsigned long timeout = 0;
+  static unsigned long travel_start_time = 0;
+  static int mot_ctrl = 0;
   static int last_ctrl = 0;
   static int duty = 0;
   static int last_buttons = 0;
   static int last_time_ctrl = 0;
-    
+
   if(m_ctrl != last_ctrl) {
-    mot_state = 1;
-    last_ctrl = m_ctrl;    
+    mot_ctrl = MOT_CTRL_STOP;
+    last_ctrl = m_ctrl;
   }
-  
-  
+
+  // date time control sun rise or set
   if(m_time_ctrl != last_time_ctrl) {
     m_ctrl = last_time_ctrl;
     last_time_ctrl = m_time_ctrl;
   }
 
-/*
+  // button control
   if(m_buttons != last_buttons) {
-    m_ctrl = 1;if
-    (m_buttons & (1 << UP_BUTTON_BIT)) {      
-    m_ctrl = 2;}     else if(m_buttons & (1 << DOWN_BUTTON_BIT)) {      
-    m_ctrl = 0;}     else {      
-    }    last_buttons = m_buttons;
+    if(m_buttons & (1 << UP_BUTTON_BIT)) {
+      m_ctrl = CTRL_OPEN;
+    } else if(m_buttons & (1 << DOWN_BUTTON_BIT)) {
+      m_ctrl = CTRL_CLOSE;
+    }
+    last_buttons = m_buttons;
   }
 
-  if( (m_buttons & (1 << TOP_SWITCH_BIT)) || (m_buttons & (1 << BOTTOM_SWITCH_BIT)) ) {
-    m_ctrl = 0;
-    mot_state = 1;    
-    last_ctrl = 0;  }
-*/
+  // limit switch check
+  if(m_ctrl == CTRL_OPEN) {
+    if(m_buttons & (1 << TOP_SWITCH_BIT)) {
+      m_ctrl = CTRL_STOP;
+      mot_ctrl = MOT_CTRL_STOP;
+      last_ctrl = 0;
+      m_door_state = DOOR_STATE_OPEN;
+    }
+  }
 
-  switch(mot_state) {
-    case 0: // INIT
+  // limit switch check
+  if(m_ctrl == CTRL_CLOSE) {
+    if(m_buttons & (1 << BOTTOM_SWITCH_BIT)) {
+      m_ctrl = CTRL_STOP;
+      mot_ctrl = MOT_CTRL_STOP;
+      last_ctrl = 0;
+      m_door_state = DOOR_STATE_CLOSED;
+    }
+  }
+
+  // stop switch check
+  if(m_buttons & (1 << STOP_SWITCH_BIT)) {
+    m_ctrl = CTRL_STOP;
+    mot_ctrl = MOT_CTRL_STOP;
+    last_ctrl = 0;
+  }
+
+  // travel time check
+  if(m_ctrl == CTRL_STOP) {
+    travel_start_time = 0;
+  }
+  
+  if(travel_start_time) {
+    if((millis() - travel_start_time) > settings.maxTravelTime) {
+      m_ctrl = CTRL_STOP;
+      mot_ctrl = MOT_CTRL_STOP;
+      last_ctrl = 0;
+    }
+  }
+
+  switch(mot_ctrl) {
+    case MOT_CTRL_INIT:
       mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOT_PWM_PIN);    //Set GPIO as PWM0A, to which Motor is connected
 
       mcpwm_config_t pwm_config;
@@ -500,64 +565,55 @@ void do_ctrl(void)
       pwm_config.counter_mode = MCPWM_UP_COUNTER;
       pwm_config.duty_mode = MCPWM_DUTY_MODE_0;
       mcpwm_init(MCPWM_UNIT_0, MCPWM_TIMER_0, &pwm_config); //Configure PWM0A & PWM0B with above settings
-
-      Serial.println("Mot init");
-      mot_state = 1;
+      mot_ctrl = MOT_CTRL_STOP;
       break;
 
-    case 1: // STOP
+    case MOT_CTRL_STOP:
       if((millis() - timeout) > 1) {
         if(duty > 0) {
           duty -= 5;
           if(duty < 0) {
-            duty = 0;
+            duty = 0;            
           }
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
-          
-          if(m_ctrl == CTRL_OPEN) {        
-            digitalWrite(MOT_DIR_PIN, 0);
-            mot_state = 2;                    
-          } else if(m_ctrl == CTRL_CLOSE) {            
-            digitalWrite(MOT_DIR_PIN, 1);
-            mot_state = 3;
-          }
-
         }
         timeout = millis();
       }
-      break;
-
-    case 2:
-      if(true) {
-        if((millis() - timeout) > 30) {
-          mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
-
-          if(duty < 80) {
-            duty++;
-          }
-          timeout = millis();
-        }      
+      if(duty == 0) {
+        mot_ctrl = MOT_CTRL_IDLE;
       }
       break;
 
-    case 3:
-      if(true) {
-        if((millis() - timeout) > 30) {
-          mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
-
-          if(duty < 80) {
-            duty++;
-          }
-          timeout = millis();
+    case MOT_CTRL_IDLE:
+        if(m_ctrl == CTRL_OPEN) {
+          digitalWrite(MOT_DIR_PIN, MOT_DIR_OPEN);          
+          mot_ctrl = MOT_CTRL_OPEN;
+          travel_start_time = millis();
+          m_door_state = DOOR_STATE_TRAVEL;
+        } else if(m_ctrl == CTRL_CLOSE) {
+          digitalWrite(MOT_DIR_PIN, MOT_DIR_CLOSE);          
+          mot_ctrl = MOT_CTRL_CLOSE;
+          travel_start_time = millis();
+          m_door_state = DOOR_STATE_TRAVEL;
         }
+      break;
+
+    case MOT_CTRL_OPEN:
+    case MOT_CTRL_CLOSE:
+      if((millis() - timeout) > 30) {
+        mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
+        if(duty < 80) {
+          duty++;
+        }
+        timeout = millis();
       }
       break;
   }
 }
 
 void do_sunriseset_ctrl(void)
-{       
-    const sunriseset_t *sunriseset = NULL; 
+{
+    const sunriseset_t *sunriseset = NULL;
     time_t ltime;
     time(&ltime);
     tm * ptm = localtime(&ltime);
@@ -576,7 +632,7 @@ void do_sunriseset_ctrl(void)
         m_time_ctrl = CTRL_OPEN;
     } else if (t > sunriseset->set) {
         m_time_ctrl = CTRL_CLOSE;
-    } 
+    }
 }
 
 void do_test(void)
@@ -588,11 +644,11 @@ void do_test(void)
     if(m_door_state == DOOR_STATE_CLOSED) {
       float distance = get_distance();
       m_ctrl = 1;
-      Serial.println(distance);      
-    } else if(m_door_state == DOOR_STATE_OPEN) {      
+      Serial.println(distance);
+    } else if(m_door_state == DOOR_STATE_OPEN) {
       float distance = get_distance();
       m_ctrl = 2;
-      Serial.println(distance);      
+      Serial.println(distance);
     }
     timeout = millis();
   }
@@ -601,27 +657,7 @@ void do_test(void)
 
 void setup(void)
 {
-  pinMode(MOT_DRV_PIN, OUTPUT);
-  digitalWrite(MOT_DRV_PIN, 1);
-
-  pinMode(MOT_PWM_PIN, OUTPUT);
-  digitalWrite(MOT_PWM_PIN, 0);
-
-  pinMode(MOT_DIR_PIN, OUTPUT);
-  digitalWrite(MOT_DIR_PIN, 0);
-
-/*
-  pinMode(TOP_SWITCH_PIN, INPUT);
-  pinMode(BOTTOM_SWITCH_PIN, INPUT);
-  pinMode(STOP_SWITCH_PIN, INPUT);
-*/
-  pinMode(UP_BUTTON_PIN, INPUT);
-  pinMode(DOWN_BUTTON_PIN, INPUT);
-
-  Serial.begin(115200);
-  Serial.println("");
-
-/*
+  /*
   Serial.setDebugOutput(true);
   esp_log_level_set("*", ESP_LOG_VERBOSE);
   ESP_LOGD("EXAMPLE", "This doesn't show");
@@ -631,11 +667,30 @@ void setup(void)
   log_i("Info");
   log_w("Warning");
   log_e("Error");
-*/
+  */
+
+  pinMode(MOT_DRV_PIN, OUTPUT);
+  digitalWrite(MOT_DRV_PIN, 1);
+
+  pinMode(MOT_PWM_PIN, OUTPUT);
+  digitalWrite(MOT_PWM_PIN, 0);
+
+  pinMode(MOT_DIR_PIN, OUTPUT);
+  digitalWrite(MOT_DIR_PIN, 0);
+
+  pinMode(TOP_SWITCH_PIN, INPUT);
+  pinMode(BOTTOM_SWITCH_PIN, INPUT);
+  pinMode(STOP_SWITCH_PIN, INPUT);
+
+  pinMode(UP_BUTTON_PIN, INPUT);
+  pinMode(DOWN_BUTTON_PIN, INPUT);
+
+  Serial.begin(115200);
+  Serial.println("");
+
   m_u8x8.begin();
   m_u8x8.setFont(u8x8_font_chroma48medium8_r);
   m_u8x8.clear();
-
   m_u8x8.drawString(0, 0, "Starting...");
 
   dcf_setup();
