@@ -329,6 +329,11 @@ function setCtrl(data) {
   xhttp.send(s); 
 }
 var state = 0;
+
+setInterval(function() {
+  getNextDateTimeCtrl();
+}, 3000); //1000mSeconds update rate
+/*
 setInterval(function() {
     // Call a function repetatively
     // getState();
@@ -349,7 +354,7 @@ setInterval(function() {
     }
     state = (state + 1) % 4;
 }, 3000); //1000mSeconds update rate
-
+*/
 function getState() {  
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
@@ -360,6 +365,18 @@ function getState() {
   xhttp.open("GET", "getState", true);
   xhttp.send();
 }
+
+function getNextDateTimeCtrl() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) { 
+      document.getElementById("state").innerHTML = this.responseText;
+    }
+  };
+  xhttp.open("GET", "getNextDateTimeCtrl", true);
+  xhttp.send();
+}
+
 </script>
 </body>
 </html>

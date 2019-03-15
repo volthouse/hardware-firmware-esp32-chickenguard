@@ -25,9 +25,9 @@
 #define STATE_WIFI_CLIENT_CONNECTING 5
 #define STATE_WIFI_CLIENT_CONNECTED  6
 
-#define DOOR_STATE_OPEN   0
-#define DOOR_STATE_CLOSED 1
-#define DOOR_STATE_TRAVEL 2
+#define DOOR_STATE_OPEN   1
+#define DOOR_STATE_CLOSED 2
+#define DOOR_STATE_TRAVEL 3
 
 #define CTRL_STOP 0
 #define CTRL_CLOSE 1
@@ -47,16 +47,19 @@
 #define MOT_CTRL_CLOSE     4
 
 #define TOP_SWITCH_PIN     13
-#define BOTTOM_SWITCH_PIN  34
-#define STOP_SWITCH_PIN    0
+#define BOTTOM_SWITCH_PIN  14
+#define STOP_SWITCH_PIN    39
+
 #define UP_BUTTON_PIN      5
 #define DOWN_BUTTON_PIN    17
+#define STOP_BUTTON_PIN    38
 
 #define TOP_SWITCH_BIT     0
 #define BOTTOM_SWITCH_BIT  1
 #define STOP_SWITCH_BIT    2
 #define UP_BUTTON_BIT      3
 #define DOWN_BUTTON_BIT    4
+#define STOP_BUTTON_BIT    5
 
 
 #define MAGIC_NO 0x4855484E
@@ -134,6 +137,7 @@ void init_server(void)
       m_server.on("/setWifi", handleSetWifi);
       m_server.on("/getApList", handleGetApList);
       m_server.on("/getState", handleGetState);
+      m_server.on("/getNextDateTimeCtrl", handleGetNextDateTimeCtrl);      
       m_server.on("/setCtrl", handleSetCtrl);
       m_server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
       m_server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
@@ -152,6 +156,7 @@ void printLocalTime(void)
     return;
   }
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  Serial.println(timeinfo.tm_yday);
 }
 
 boolean isIp(String str) {
@@ -236,8 +241,7 @@ void handleGetState(void)
 
 void handleGetNextDateTimeCtrl(void)
 {
-  String s;
-
+  
   const sunriseset_t *sunriseset = NULL;
   time_t ltime;
   time(&ltime);
@@ -250,16 +254,17 @@ void handleGetNextDateTimeCtrl(void)
   }
 
   sunriseset = &g_sun_rise_set[day];
-
   int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
 
-  if (t > sunriseset->rise) {
-      s = sunriseset->rise / 3600 + ":" + (sunriseset->rise / 3600) % 60;
-  } else if (t > sunriseset->set) {
-      s = sunriseset->set / 3600 + ":" + (sunriseset->set / 3600) % 60;
-  }
+  char buf[100];
   
-  m_server.send(200, "text/plane", s);
+  sprintf(buf, "Auf: %02d:%02d  Zu: %02d:%02d", 
+    sunriseset->rise / 3600, (sunriseset->rise / 60) % 60, 
+    sunriseset->set / 3600, (sunriseset->set / 60) % 60
+  );        
+  
+  m_server.send(200, "text/plane", buf);
+  Serial.println(buf);
 }
 
 void handleGetApList(void)
@@ -298,10 +303,10 @@ void handleSetCtrl(void)
 {
 
   m_test_enabled = 0;
-m_ctrl = m_server.arg("data").toInt();
+  m_ctrl = m_server.arg("data").toInt();
 
   char buf[50];
-sprintf(buf, "setCtrl: %d", m_ctrl);
+  sprintf(buf, "setCtrl: %d", m_ctrl);
 
   Serial.println(buf);
 }
@@ -377,21 +382,26 @@ void do_buttons(void)
     } else {
       m_buttons &= ~(1 << BOTTOM_SWITCH_BIT);
     }
-    if(digitalRead(STOP_SWITCH_PIN) == 1){
+    if(digitalRead(STOP_SWITCH_PIN) == 0){
       m_buttons |= 1 << STOP_SWITCH_BIT;
     } else {
       m_buttons &= ~(1 << STOP_SWITCH_BIT);
     }
     
-    if(digitalRead(UP_BUTTON_PIN) == 1){
+    if(digitalRead(UP_BUTTON_PIN) == 0){
       m_buttons |= 1 << UP_BUTTON_BIT;
     } else {
       m_buttons &= ~(1 << UP_BUTTON_BIT);
     }
-    if(digitalRead(DOWN_BUTTON_PIN) == 1){
+    if(digitalRead(DOWN_BUTTON_PIN) == 0){
       m_buttons |= 1 << DOWN_BUTTON_BIT;
     } else {
       m_buttons &= ~(1 << DOWN_BUTTON_BIT);
+    }
+    if(digitalRead(STOP_BUTTON_PIN) == 0){
+      m_buttons |= 1 << STOP_BUTTON_BIT;
+    } else {
+      m_buttons &= ~(1 << STOP_BUTTON_BIT);
     }
     timeout = millis();
   }
@@ -412,6 +422,9 @@ void do_buttons(void)
   }
   if(m_buttons & (1 << DOWN_BUTTON_BIT)) {
     s += "DOWN_BUTTON ";
+  }
+  if(m_buttons & (1 << STOP_BUTTON_BIT)) {
+    s += "STOP_BUTTON ";
   }
 
   Serial.println(s);
@@ -500,7 +513,8 @@ void do_ctrl(void)
 
   // date time control sun rise or set
   if(m_time_ctrl != last_time_ctrl) {
-    m_ctrl = last_time_ctrl;
+    m_ctrl = m_time_ctrl;
+    Serial.println("Time ctrl........................................");
     last_time_ctrl = m_time_ctrl;
   }
 
@@ -510,7 +524,10 @@ void do_ctrl(void)
       m_ctrl = CTRL_OPEN;
     } else if(m_buttons & (1 << DOWN_BUTTON_BIT)) {
       m_ctrl = CTRL_CLOSE;
+    } else if(m_buttons & (1 << STOP_BUTTON_BIT)) {
+      m_ctrl = CTRL_STOP;
     }
+
     last_buttons = m_buttons;
   }
 
@@ -533,14 +550,14 @@ void do_ctrl(void)
       m_door_state = DOOR_STATE_CLOSED;
     }
   }
-
+  
   // stop switch check
   if(m_buttons & (1 << STOP_SWITCH_BIT)) {
     m_ctrl = CTRL_STOP;
     mot_ctrl = MOT_CTRL_STOP;
     last_ctrl = 0;
   }
-
+/*
   // travel time check
   if(m_ctrl == CTRL_STOP) {
     travel_start_time = 0;
@@ -553,7 +570,7 @@ void do_ctrl(void)
       last_ctrl = 0;
     }
   }
-
+*/
   switch(mot_ctrl) {
     case MOT_CTRL_INIT:
       mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOT_PWM_PIN);    //Set GPIO as PWM0A, to which Motor is connected
@@ -628,11 +645,71 @@ void do_sunriseset_ctrl(void)
 
     int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
 
-    if (t > sunriseset->rise) {
-        m_time_ctrl = CTRL_OPEN;
-    } else if (t > sunriseset->set) {
-        m_time_ctrl = CTRL_CLOSE;
+    if (t >= sunriseset->rise && t < sunriseset->set) {
+        //if(m_door_state == DOOR_STATE_CLOSED) {
+          m_time_ctrl = CTRL_OPEN;
+        //}
     }
+    if (t >= sunriseset->set) {
+      //if(m_door_state == DOOR_STATE_OPEN) {
+        m_time_ctrl = CTRL_CLOSE;
+      //}
+    }
+/*
+Serial.println("Sun");
+Serial.println(t);
+Serial.println(sunriseset->rise);
+Serial.println(m_time_ctrl);
+*/
+}
+
+void do_time_test(void)
+{
+
+  static int lock = 0;
+
+  if(lock == 0) {
+//    do_ntp();
+    time_t ltime;
+    time(&ltime);
+    tm * ptm = localtime(&ltime);
+    
+    
+    ptm->tm_year = 2019 - 1900;
+    ptm->tm_mon = 3 - 1;
+    ptm->tm_mday = 15;
+    ptm->tm_hour = 6;
+    ptm->tm_min = 38;
+    ptm->tm_sec = 40;
+    
+    time_t t = mktime(ptm);    
+    struct timeval now = { .tv_sec = t };        
+    settimeofday(&now, NULL);
+    
+    printLocalTime();    
+    lock++;
+  } else if(lock == 1 && m_door_state == DOOR_STATE_OPEN) {
+    time_t ltime;
+    time(&ltime);
+    tm * ptm = localtime(&ltime);
+    
+    
+    ptm->tm_year = 2019 - 1900;
+    ptm->tm_mon = 3 - 1;
+    ptm->tm_mday = 15;
+    ptm->tm_hour = 18;
+    ptm->tm_min = 27;
+    ptm->tm_sec = 40;
+    
+    time_t t = mktime(ptm);    
+    struct timeval now = { .tv_sec = t };        
+    settimeofday(&now, NULL);
+    
+    printLocalTime();    
+    lock++;
+  } else if(lock == 2 && m_door_state == DOOR_STATE_CLOSED) {
+    lock = 0;
+  }
 }
 
 void do_test(void)
@@ -684,6 +761,7 @@ void setup(void)
 
   pinMode(UP_BUTTON_PIN, INPUT);
   pinMode(DOWN_BUTTON_PIN, INPUT);
+  pinMode(STOP_BUTTON_PIN, INPUT);
 
   Serial.begin(115200);
   Serial.println("");
@@ -710,8 +788,9 @@ void loop(void)
   do_test();
   do_buttons();
   do_ctrl();
-  // do_ntp();
-  do_dcf_decoding();
+  //do_ntp();
+  //do_dcf_decoding();
+  do_time_test();
   do_display();
   do_wifi();
 }
