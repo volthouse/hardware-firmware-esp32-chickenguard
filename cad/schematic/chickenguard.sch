@@ -15593,17 +15593,6 @@ F 3 "http://www.vishay.com/docs/31509/csc.pdf" H 9400 3100 50  0001 C CNN
 	1    9400 3100
 	1    0    0    -1  
 $EndComp
-$Comp
-L power:+5V #PWR01
-U 1 1 5C86D9D9
-P 9000 2800
-F 0 "#PWR01" H 9000 2650 50  0001 C CNN
-F 1 "+5V" H 9015 2973 50  0000 C CNN
-F 2 "" H 9000 2800 50  0001 C CNN
-F 3 "" H 9000 2800 50  0001 C CNN
-	1    9000 2800
-	1    0    0    -1  
-$EndComp
 Wire Wire Line
 	9000 2900 9000 2800
 $Comp
@@ -15692,7 +15681,7 @@ Wire Wire Line
 Wire Wire Line
 	9400 4100 8350 4100
 Text Label 8350 3700 0    50   ~ 0
-DTRIG_TSWITCH
+TOP_SWITCH
 Text Label 2850 2050 0    50   ~ 0
 TOP_SWITCH
 Text Label 2850 2250 0    50   ~ 0
@@ -15708,7 +15697,7 @@ LUMINANCE
 Text Label 2850 2950 0    50   ~ 0
 DCF77
 Text Label 8350 3800 0    50   ~ 0
-DECHO_BSWITCH
+BOTTOM_SWITCH
 Text Label 8350 3900 0    50   ~ 0
 STOP_SWITCH
 Text Label 8350 4000 0    50   ~ 0
@@ -15808,4 +15797,8 @@ Wire Wire Line
 	2050 2750 1750 2750
 Text Label 2950 3050 0    50   ~ 0
 STOP_SWITCH
+Text Label 8350 4200 0    50   ~ 0
+STOP_BUTTON
+Text Label 9000 2850 0    50   ~ 0
+3.3V
 $EndSCHEMATC

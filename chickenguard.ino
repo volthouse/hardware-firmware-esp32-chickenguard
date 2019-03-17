@@ -789,8 +789,8 @@ void loop(void)
   do_buttons();
   do_ctrl();
   //do_ntp();
-  //do_dcf_decoding();
-  do_time_test();
+  do_dcf_decoding();
+  //do_time_test();
   do_display();
   do_wifi();
 }

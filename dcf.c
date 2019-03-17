@@ -55,7 +55,7 @@ static volatile uint8_t  state = 0;
 static volatile uint8_t  tenMs = 0;
 
 static uint8_t  dcf_get_pin_state(void)   { 
-  return !digitalRead(36);
+  return !digitalRead(34);
 }
  
 void IRAM_ATTR dcf_on_timer() {
@@ -205,7 +205,7 @@ void do_dcf_decoding(void)
 
 
 void dcf_setup() {
-  pinMode(36, INPUT);
+  pinMode(34, INPUT);
  
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &dcf_on_timer, true);
