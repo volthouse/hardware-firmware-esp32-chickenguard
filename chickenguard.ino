@@ -225,18 +225,44 @@ void handleRoot(void)
 
 void handleGetState(void)
 {
-  String s;
+  char buf[200];
+  char buf2[100];
 
   if(DOOR_STATE_OPEN == m_door_state) {
-    s = "Auf";
+    strcpy(buf, "Auf<br>");
   } else if(DOOR_STATE_CLOSED == m_door_state) {
-    s = "ZU";
+    strcpy(buf, "Zu<br>");
   } else if(DOOR_STATE_TRAVEL == m_door_state) {
-    s = "Fährt";
+    strcpy(buf, "Fährt<br>");
   } else {
-    s = "?";
+    strcpy(buf, "?<br>");
   }
-  m_server.send(200, "text/plane", s);
+
+
+  const sunriseset_t *sunriseset = NULL;
+  time_t ltime;
+  time(&ltime);
+  tm * ptm = localtime(&ltime);
+
+  int day = ptm->tm_yday;
+
+  if (day < 0 || day > ARRAYSIZE(g_sun_rise_set)) {
+      day = 364 / 2;
+  }
+
+  sunriseset = &g_sun_rise_set[day];
+  int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
+
+  
+  
+  sprintf(buf2, "<br>Auf: %02d:%02d <br> Zu: %02d:%02d", 
+    sunriseset->rise / 3600, (sunriseset->rise / 60) % 60, 
+    sunriseset->set / 3600, (sunriseset->set / 60) % 60
+  );        
+
+  strcat(buf, buf2);
+  
+  m_server.send(200, "text/plane", buf);
 }
 
 void handleGetNextDateTimeCtrl(void)
@@ -645,12 +671,12 @@ void do_sunriseset_ctrl(void)
 
     int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
 
-    if (t >= sunriseset->rise && t < sunriseset->set) {
+    if (t >= sunriseset->rise && t < (sunriseset->rise + 1)) {
         //if(m_door_state == DOOR_STATE_CLOSED) {
           m_time_ctrl = CTRL_OPEN;
         //}
     }
-    if (t >= sunriseset->set) {
+    if (t >= sunriseset->set && t >= (sunriseset->set + 1)) {
       //if(m_door_state == DOOR_STATE_OPEN) {
         m_time_ctrl = CTRL_CLOSE;
       //}

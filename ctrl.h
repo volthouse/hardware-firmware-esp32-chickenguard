@@ -55,29 +55,19 @@ button{
     background-color:#1fa3ec;
     color:#fff;
     line-height:2.4rem;
-    font-size:1.2rem;
+    font-size:5.2rem;
     width:100%; 
     height: 100%;
 }
 
-label{
-    border:0;
-    border-radius:0.3rem;
-    background-color:#1fa3ec;
-    color:#fff;
-    line-height:2.4rem;
-    font-size:1.2rem;
-    width:100%; 
-    height:100%;
-    text-align: center;    
-}
+
 
 .flipswitch {
   position: relative;
-  width: 100%;
+  width: 100%;   
   -webkit-user-select:none;
   -moz-user-select:none;
-  -ms-user-select: none;
+  -ms-user-select: none;  
 }
 .flipswitch input[type=checkbox] {
   display: none;
@@ -88,6 +78,7 @@ label{
   cursor: pointer;
   border: 1px solid #999999;
   border-radius: 6px;
+  height:50px;
 }
 .flipswitch-inner {
   width: 200%;
@@ -101,9 +92,9 @@ label{
 .flipswitch-inner:before, .flipswitch-inner:after {
   float: left;
   width: 50%;
-  height: 40px;
+  height: 50px;
   padding: 0;
-  line-height: 40px;
+  //line-height: 40px;
   font-size: 18px;
   color: white;
   font-family: Trebuchet, Arial, sans-serif;
@@ -113,13 +104,13 @@ label{
   box-sizing: border-box;
 }
 .flipswitch-inner:before {
-  content: "Auto";
+  content: "Zeitsteuerung";
   padding-left: 12px;
   background-color: #1fa3ec;
   color: #FFFFFF;
 }
 .flipswitch-inner:after {
-  content: "Manual";
+  content: "Manuell";
   padding-right: 12px;
   background-color: #EBEBEB;
   color: #888888;
@@ -134,7 +125,7 @@ label{
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 76%;
+  right: 96%;
   -webkit-transition: all 0.3s ease-in 0s;
   -moz-transition: all 0.3s ease-in 0s;
   -ms-transition: all 0.3s ease-in 0s;
@@ -158,10 +149,7 @@ label{
   padding:10px;
 }
 
-.item-header {
-  grid-area: header;
-  align-self: center;
-}
+
 .item-state {
 background-color: #555;
 border-radius: 10px;
@@ -175,128 +163,25 @@ border-radius: 10px;
 }
 .item-stop {
   grid-area: stop;
+  //height: 180%;
 }
-
+.item-dtbtn {
+  grid-area: dtbtn;
+  //height: 10%;
+}
 .container {
   display: grid;
   grid-template-columns: auto;
-  grid-template-rows: auto;
+  grid-template-rows: 20% 20%  50% 5%;
   grid-gap: 15px 10px;  
   grid-template-areas:
     "state up"
     "state down"
-    "state stop";
+    "state stop"
+    "state dtbtn";
   width: 90vw;
   height: 90vh;
   align: stretch;
-}
-
-.arrows-down {
-  position: relative;
-  /**/
-  
-  top: 50%;
-  left: 50%;
-  /**/
-  width: 30px;
-  height: 30px;
-  transform: translate(-30%, -30%);
-}
-.arrows-down:before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-  border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-  transform: translate(26.66667px, 106.66667px) rotate(-45deg);
-  animation: arrows-down 3s linear infinite;
-}
-.arrows-down:after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-  border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-  transform: translate(53.33333px, 0px) rotate(-45deg);
-  animation: arrows-down 3s linear infinite -1.5s;
-}
-
-@keyframes arrows-down {
-  0% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-    transform: translate(-13.33333px, -53.33333px) rotate(-45deg);
-  }
-  10%, 90% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-  }
-  50% {
-    border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-    border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-    transform: translate(-13.33333px, 0px) rotate(-45deg);
-  }
-  100% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-    transform: translate(-13.33333px, 53.33333px) rotate(-45deg);
-  }
-}
-
-.arrows-up {
-  position: relative;
-  /**/
-  
-  top: 30%;
-  left: 50%;
-  /**/
-  width: 30px;
-  height: 30px;
-  transform: translate(-30%, -30%);
-}
-.arrows-up:before {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-  border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-  transform: translate(26.66667px, 106.66667px) rotate(-45deg);
-  animation: arrows-up 3s linear infinite;
-}
-.arrows-up:after {
-  content: '';
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-  border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-  transform: translate(53.33333px, 0px) rotate(-45deg);
-  animation: arrows-up 3s linear infinite -1.5s;
-}
-
-@keyframes arrows-up {
-  100% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-    transform: translate(-13.33333px, -53.33333px) rotate(135deg);
-  }
-  50% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-  }
-  10% {
-    border-left: 26.66667px solid rgba(255, 0, 0, 0.7);
-    border-bottom: 26.66667px solid rgba(255, 0, 0, 0.7);
-    transform: translate(-13.33333px, 0px) rotate(135deg);
-  }
-  0% {
-    border-left: 26.66667px solid transparent;
-    border-bottom: 26.66667px solid transparent;
-    transform: translate(-13.33333px, 53.33333px) rotate(135deg);
-  }
 }
 
 .verticalhorizontal {  
@@ -312,10 +197,22 @@ border-radius: 10px;
 
   
 <div class="container">
-  <div class="item-state" id = "state"><div class="arrows-down"></div></div>
+  <div class="item-state" align="center"><font id = "state" color="white" size="5.2rem">...</font></div>
   <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(1)">AUF</button></div>
   <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>  
   <div class="item-stop"><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">STOP</button></div>
+  <div class="item-dtbtn">
+  
+<div class="flipswitch"><div class="flipswitch">
+    <input type="checkbox" name="flipswitch" class="flipswitch-cb" id="fs" onclick="checkDateTimeCtrl()" checked>
+    <label class="flipswitch-label" for="fs">
+        <div class="flipswitch-inner"></div>
+        <div class="flipswitch-switch"></div>
+    </label>
+</div>
+
+  
+  </div>
 </div>
 
 </div>
@@ -328,38 +225,27 @@ function setCtrl(data) {
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
   xhttp.send(s); 
 }
-var state = 0;
+
+function checkDateTimeCtrl() {
+  var checkbox = document.getElementById('fluency');
+  if (checkbox.checked != true)
+  {
+    setCtrl(100);
+  } else {
+    setCtrl(101);
+  }
+}
+
 
 setInterval(function() {
-  getNextDateTimeCtrl();
-}, 3000); //1000mSeconds update rate
-/*
-setInterval(function() {
-    // Call a function repetatively
-    // getState();
-    switch(state) {
-        case 0:            
-            document.getElementById("state").innerHTML = '<div class="verticalhorizontal"><img src="closed.png"/></div>';
-            break;
-        case 1:
-            document.getElementById("state").innerHTML = '<div class="verticalhorizontal"><img src="open.png"/></div>';
-            break;
-        case 2:
-            document.getElementById("state").innerHTML = '<div class="arrows-up"></div>';
-            break;
-        case 3:
-            document.getElementById("state").innerHTML = '<div class="arrows-down"></div>';
-            break;
+  getState();
+}, 1000); //1000mSeconds update rate
 
-    }
-    state = (state + 1) % 4;
-}, 3000); //1000mSeconds update rate
-*/
 function getState() {  
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) { 
-      document.getElementById("state").innerHTML = this.responseText;
+      document.getElementById("state").innerText = this.responseText;
     }
   };
   xhttp.open("GET", "getState", true);
