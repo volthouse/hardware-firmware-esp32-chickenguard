@@ -163,6 +163,12 @@ button{
     <td><input name="maxTravelDuration" id="maxTravelDuration" value=""></td>
   </tr>
   <tr>
+    <th>Max Stop Duration</th>
+  </tr>
+  <tr>
+    <td><input name="maxStopDuration" id="maxStopDuration" value=""></td>
+  </tr>
+  <tr>
     <td><button type="submit" onclick="setCtrlSettings()">Submit</button></td>
   </tr>
   <tr>
@@ -196,6 +202,8 @@ function setWifi() {
 
 function setCtrlSettings() {
   var s = "maxTravelDuration=" + document.getElementById("maxTravelDuration").value;
+  s += "&maxStopDuration=" + document.getElementById("maxStopDuration").value;
+  
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setCtrlSettings", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');

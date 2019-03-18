@@ -15,6 +15,8 @@
 #include "dcf.h"
 #include "sunriseset.h"
 
+#define DEBUG
+
 #ifdef DEBUG
  #define DEBUG_PRINT(x)     Serial.print (x)
  #define DEBUG_PRINTDEC(x)  Serial.print (x, DEC)
@@ -113,7 +115,9 @@ struct {
   unsigned int magicNo;
   char ssid[100];
   char pw[100];
+  int ctrlMode;
   int maxTravelTime;
+  int stopDuration;
 } settings;
 #pragma pop
 
@@ -129,10 +133,8 @@ void init_settings(void)
     memset(&settings, 0, sizeof(settings));
     settings.magicNo = MAGIC_NO;
     settings.maxTravelTime = 2000;
-    DEBUG_PRINTLN("settings cleared");
-  } else {
-    DEBUG_PRINTLN(settings.ssid);
-    DEBUG_PRINTLN(settings.pw);
+    settings.stopDuration = 0;
+    DEBUG_PRINTLN("settings init");  
   }
 }
 
@@ -262,7 +264,7 @@ void handleGetState(void)
   sprintf(close_time, "%02d:%02d", sunriseset->set / 3600, (sunriseset->set / 60) % 60);
 
   // control mode, door state, open time, close time
-  sprintf(buf, "%d, %d; %s; %s", m_ctrl_mode, m_door_state, open_time, close_time);
+  sprintf(buf, "%d; %d; %s; %s", m_ctrl_mode, m_door_state, open_time, close_time);
 
   m_server.send(200, "text/plane", buf);
 }
@@ -308,13 +310,23 @@ void handleResetSettings(void)
 void handleSetCtrlSettings(void)
 {
   int maxTravelDuration = m_server.arg("maxTravelDuration").toInt();
+  int maxStopDuration = m_server.arg("maxStopDuration").toInt();
 
   settings.maxTravelTime = maxTravelDuration;
+  settings.stopDuration = maxStopDuration;
+
+  if(settings.maxTravelTime < 0 || settings.maxTravelTime > 10000) {
+    settings.maxTravelTime = 0;
+  }
+
+  if(settings.stopDuration < 0 || settings.stopDuration > 10000) {
+    settings.stopDuration = 0;
+  }
   
   save_settings();
   
   char buf[50];
-  sprintf(buf, "maxTravelDuration: %d", maxTravelDuration);
+  sprintf(buf, "maxTravelDuration: %d\r\nmaxStopDuration: %d", settings.maxTravelTime, settings.stopDuration);
   DEBUG_PRINTLN(buf);
 }
 
@@ -329,6 +341,9 @@ void handleSetCtrl(void)
   } if(ctrl == 101) {
     m_ctrl_mode = CTRL_MODE_TIME;
   }
+
+  settings.ctrlMode = m_ctrl_mode;
+  save_settings();
 
   char buf[50];
   sprintf(buf, "setCtrl: %d", m_ctrl);
@@ -409,17 +424,17 @@ void do_bin_inputs(void)
   int bin_inputs = 0;
 
   if((millis() - timeout) > 100) {
-    if(digitalRead(TOP_SWITCH_PIN) == 0) {
+    if(digitalRead(TOP_SWITCH_PIN) == 1) {
       bin_inputs |= 1 << TOP_SWITCH_BIT;
     } else {
       bin_inputs &= ~(1 << TOP_SWITCH_BIT);
     }
-    if(digitalRead(BOTTOM_SWITCH_PIN) == 0) {
+    if(digitalRead(BOTTOM_SWITCH_PIN) == 1) {
       bin_inputs |= 1 << BOTTOM_SWITCH_BIT;
     } else {
       bin_inputs &= ~(1 << BOTTOM_SWITCH_BIT);
     }
-    if(digitalRead(STOP_SWITCH_PIN) == 0) {
+    if(digitalRead(STOP_SWITCH_PIN) == 1) {
       bin_inputs |= 1 << STOP_SWITCH_BIT;
     } else {
       bin_inputs &= ~(1 << STOP_SWITCH_BIT);
@@ -441,11 +456,14 @@ void do_bin_inputs(void)
       bin_inputs &= ~(1 << STOP_BUTTON_BIT);
     }
 
-    if(bin_inputs & ((1 << DOWN_BUTTON_BIT) || (1 << STOP_BUTTON_BIT))) {
+    if(bin_inputs & ((1 << DOWN_BUTTON_BIT) | (1 << STOP_BUTTON_BIT))) {
       if((millis() - ap_init_timeout) > 5000) {
         m_app_state = STATE_WIFI_AP_INIT;
+        DEBUG_PRINTLN("ap ini");
       }
-    } else {
+      //bin_inputs &= ~(1 << STOP_BUTTON_BIT);
+      //bin_inputs &= ~(1 << DOWN_BUTTON_BIT);
+    } else {      
       ap_init_timeout = millis();
     }
 
@@ -485,7 +503,8 @@ void do_display(void)
 
   switch(m_app_state) {
     case STATE_WIFI_AP_INIT:
-      m_u8x8.drawString(0, 0, "Wifi Setup  ");
+      m_u8x8.drawString(0, 0, "Wifi Setup    ");
+      return;
       break;
   }
 
@@ -499,9 +518,9 @@ void do_display(void)
 
         // WiFi State
         if (WiFi.status() == WL_CONNECTED) {
-          m_u8x8.drawString(0, 0, "WiFi Connected   ");
+          m_u8x8.drawString(0, 0, "WiFi Connected");
         } else {
-          m_u8x8.drawString(0, 0, "WiFi Disconnected");
+          m_u8x8.drawString(0, 0, "WiFi Discon.  ");
         }
 
         // DateTime
@@ -514,11 +533,26 @@ void do_display(void)
         // Control Mode
         memset(buf, 0, sizeof(buf));
         if (m_ctrl_mode == CTRL_MODE_TIME) {
-          strcpy(buf, "Time Control");
+          strcpy(buf, "Time Control  ");
         } else if (m_ctrl_mode == CTRL_MODE_MANUAL) {
           strcpy(buf, "Manual Control");
         }
         m_u8x8.drawString(0, 4, buf);
+
+        if(m_ctrl == CTRL_OPEN) {
+          m_u8x8.drawString(0, 6, "Faehrt: AUF ");
+        } else if(m_ctrl == CTRL_CLOSE) {
+          m_u8x8.drawString(0, 6, "Faehrt: ZU  ");
+        } else {
+          if(m_door_state == DOOR_STATE_OPEN) {
+            m_u8x8.drawString(0, 6, "Zustand: AUF");
+          } else if(m_door_state == DOOR_STATE_CLOSED) {
+            m_u8x8.drawString(0, 6, "Zustand: ZU ");
+          } else {
+            m_u8x8.drawString(0, 6, "Zustand: AUS");
+          }
+        }
+        
         timeout = millis();
       }
       break;
@@ -561,14 +595,15 @@ void do_ctrl(void)
 {
   static unsigned long timeout = 0;
   static unsigned long travel_start_time = 0;
+  static unsigned long stop_start_time = 0;
   static int mot_ctrl = 0;
   static int last_ctrl = 0;
   static int duty = 0;
   static int last_bin_inputs = 0;
-  static int last_time_ctrl = 0;
+  static int last_time_ctrl = 0;  
 
-  if(m_ctrl != last_ctrl) {
-    mot_ctrl = MOT_CTRL_STOP;
+  if(m_ctrl != last_ctrl) {    
+    mot_ctrl = MOT_CTRL_STOP;    
     last_ctrl = m_ctrl;
   }
 
@@ -582,7 +617,7 @@ void do_ctrl(void)
   // button control
   if(m_bin_inputs != last_bin_inputs) {
     if(m_bin_inputs & (1 << UP_BUTTON_BIT)) {
-      m_ctrl = CTRL_OPEN;
+      m_ctrl = CTRL_OPEN;      
     } else if(m_bin_inputs & (1 << DOWN_BUTTON_BIT)) {
       m_ctrl = CTRL_CLOSE;
     } else if(m_bin_inputs & (1 << STOP_BUTTON_BIT)) {
@@ -593,32 +628,33 @@ void do_ctrl(void)
   }
 
   // limit switch check
-  if(m_ctrl == CTRL_OPEN) {
-    if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
+  if(mot_ctrl == MOT_CTRL_OPEN) {
+    if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {      
       m_ctrl = CTRL_STOP;
-      mot_ctrl = MOT_CTRL_STOP;
-      last_ctrl = 0;
+      if(stop_start_time == 0) {
+        stop_start_time = millis();
+      }
     }
   }
 
   // limit switch check
-  if(m_ctrl == CTRL_CLOSE) {
-    if(m_bin_inputs & (1 << BOTTOM_SWITCH_BIT)) {
+  if(mot_ctrl == MOT_CTRL_CLOSE) {
+    if(m_bin_inputs & (1 << BOTTOM_SWITCH_BIT)) {        
       m_ctrl = CTRL_STOP;
-      mot_ctrl = MOT_CTRL_STOP;
-      last_ctrl = 0;
+      if(stop_start_time == 0) {
+        stop_start_time = millis();
+      }
     }
   }
 
   // stop switch check
   if(m_bin_inputs & (1 << STOP_SWITCH_BIT)) {
     m_ctrl = CTRL_STOP;
-    mot_ctrl = MOT_CTRL_STOP;
-    last_ctrl = 0;
+    mot_ctrl = MOT_CTRL_STOP;    
   }
 
   // Door State
-  if((mot_ctrl = MOT_CTRL_OPEN) || (mot_ctrl = MOT_CTRL_CLOSE)) {
+  if((mot_ctrl == MOT_CTRL_OPEN) || (mot_ctrl == MOT_CTRL_CLOSE)) {
     m_door_state = DOOR_STATE_TRAVEL;
   } else if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
     m_door_state = DOOR_STATE_OPEN;
@@ -629,20 +665,21 @@ void do_ctrl(void)
   }
 
 
-/*
+
   // travel time check
+  /*
   if(m_ctrl == CTRL_STOP) {
     travel_start_time = 0;
   }
+  */
 
-  if(travel_start_time) {
+  if(travel_start_time && settings.maxTravelTime) {
     if((millis() - travel_start_time) > settings.maxTravelTime) {
       m_ctrl = CTRL_STOP;
-      mot_ctrl = MOT_CTRL_STOP;
-      last_ctrl = 0;
+      travel_start_time = 0;
     }
   }
-*/
+
   switch(mot_ctrl) {
     case MOT_CTRL_INIT:
       mcpwm_gpio_init(MCPWM_UNIT_0, MCPWM0A, MOT_PWM_PIN);    //Set GPIO as PWM0A, to which Motor is connected
@@ -658,7 +695,12 @@ void do_ctrl(void)
       break;
 
     case MOT_CTRL_STOP:
-      if((millis() - timeout) > 1) {
+      if(stop_start_time) {
+        if((millis() - stop_start_time) < settings.stopDuration) {          
+          break;        
+        }
+      }
+      if((millis() - timeout) > 2) {
         if(duty > 0) {
           duty -= 5;
           if(duty < 0) {
@@ -669,7 +711,7 @@ void do_ctrl(void)
         timeout = millis();
       }
       if(duty == 0) {
-        mot_ctrl = MOT_CTRL_IDLE;
+        mot_ctrl = MOT_CTRL_IDLE;        
       }
       break;
 
@@ -678,10 +720,12 @@ void do_ctrl(void)
           digitalWrite(MOT_DIR_PIN, MOT_DIR_OPEN);
           mot_ctrl = MOT_CTRL_OPEN;
           travel_start_time = millis();
+          stop_start_time = 0;          
         } else if(m_ctrl == CTRL_CLOSE) {
           digitalWrite(MOT_DIR_PIN, MOT_DIR_CLOSE);
           mot_ctrl = MOT_CTRL_CLOSE;
           travel_start_time = millis();
+          stop_start_time = 0;
         }
       break;
 
@@ -828,6 +872,20 @@ void setup(void)
   } else {
     m_app_state = STATE_WIFI_AP_INIT;
   }
+
+  m_ctrl_mode = settings.ctrlMode;
+
+ if(settings.maxTravelTime < 0 || settings.maxTravelTime > 10000) {
+    settings.maxTravelTime = 0;
+  }
+
+  if(settings.stopDuration < 0 || settings.stopDuration > 10000) {
+    settings.stopDuration = 0;
+  }
+
+  DEBUG_PRINTLN("Max Travel Duration ms");
+  DEBUG_PRINTDEC(settings.maxTravelTime);
+  DEBUG_PRINTLN("");
 }
 
 void loop(void)

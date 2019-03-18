@@ -172,7 +172,7 @@ border-radius: 10px;
 .container {
   display: grid;
   grid-template-columns: auto;
-  grid-template-rows: 20% 20%  50% 7.5%;
+  grid-template-rows: 20% 20%  50% 8%;
   grid-gap: 15px 10px;
   grid-template-areas:
     "state up"
@@ -198,8 +198,8 @@ border-radius: 10px;
 
 <div class="container">
   <div class="item-state" align="center" id = "state"></div>
-  <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(1)">AUF</button></div>
-  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>
+  <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(2)">AUF</button></div>
+  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(1)">ZU</button></div>
   <div class="item-stop"><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">STOP</button></div>
   <div class="item-dtbtn">
     <div class="flipswitch"><div class="flipswitch">
@@ -226,19 +226,34 @@ function setCtrl(data) {
 function checkDateTimeCtrl() {
   var checkbox = document.getElementById('fs');
   if (checkbox.checked != true) {
-    //setCtrl(100);   // Manuell
-    alert(100);
+    setCtrl(100);   // Manuell
+    //alert(100);
   } else {
-    //setCtrl(101);   // Zeitsteuerung
-    alert(101);
+    setCtrl(101);   // Zeitsteuerung
+    //alert(101);
   }
 }
 
 setInterval(function() {
+  
+  getState();
+
+}, 1000); //1000mSeconds update rate
+
+function getState() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      updateState(this.responseText);
+    }
+  };
+  xhttp.open("GET", "getState", true);
+  xhttp.send();
+}
+
+function updateState(s) {
   // control mode, door state, open time, close time
   //var s = "0;2;06:00;18:00";
-
-  var s = getState();
 
   var r = s.split(";");
   var ctrl_mode_str = "";
@@ -257,8 +272,8 @@ setInterval(function() {
   } else if(door_state == 2) {
     door_state_str = "Zu";
   } else if(door_state == 3) {
-    door_state_str = "Fährt";
-  } else if(door_state == 4) {
+    door_state_str = "F&auml;hrt";
+  } else {
     door_state_str = "Steht";
   }
 
@@ -278,17 +293,6 @@ setInterval(function() {
 
   document.getElementById("state").innerHTML = h;
 
-}, 1000); //1000mSeconds update rate
-
-function getState() {
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) {
-      document.getElementById("state").innerText = this.responseText;
-    }
-  };
-  xhttp.open("GET", "getState", true);
-  xhttp.send();
 }
 
 function getNextDateTimeCtrl() {
