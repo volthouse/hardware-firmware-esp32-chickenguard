@@ -25,13 +25,17 @@
 #define STATE_WIFI_CLIENT_CONNECTING 5
 #define STATE_WIFI_CLIENT_CONNECTED  6
 
-#define DOOR_STATE_OPEN   1
-#define DOOR_STATE_CLOSED 2
-#define DOOR_STATE_TRAVEL 3
+#define DOOR_STATE_OPEN    1
+#define DOOR_STATE_CLOSED  2
+#define DOOR_STATE_TRAVEL  3
+#define DOOR_STATE_STOPPED 4
 
-#define CTRL_STOP 0
-#define CTRL_CLOSE 1
-#define CTRL_OPEN  2
+#define CTRL_MODE_MANUAL   0
+#define CTRL_MODE_TIME     1
+
+#define CTRL_STOP          0
+#define CTRL_CLOSE         1
+#define CTRL_OPEN          2
 
 #define MOT_DRV_PIN        26
 #define MOT_DIR_PIN        25
@@ -87,8 +91,9 @@ static uint32_t m_app_state = 0;
 
 // Control
 static int m_ctrl = 0;
+static int m_ctrl_mode = 0;
 static int m_door_state = 0;
-static int m_buttons = 0;
+static int m_bin_inputs = 0;
 static int m_time_ctrl = 0;
 static int m_test_enabled = 1;
 
@@ -113,7 +118,7 @@ void init_settings(void)
   if(MAGIC_NO != settings.magicNo) {
     memset(&settings, 0, sizeof(settings));
     settings.magicNo = MAGIC_NO;
-    settings.maxTravelTime = 1000; 
+    settings.maxTravelTime = 1000;
     Serial.println("settings cleared");
   } else {
     Serial.println(settings.ssid);
@@ -137,7 +142,6 @@ void init_server(void)
       m_server.on("/setWifi", handleSetWifi);
       m_server.on("/getApList", handleGetApList);
       m_server.on("/getState", handleGetState);
-      m_server.on("/getNextDateTimeCtrl", handleGetNextDateTimeCtrl);      
       m_server.on("/setCtrl", handleSetCtrl);
       m_server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
       m_server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
@@ -226,18 +230,8 @@ void handleRoot(void)
 void handleGetState(void)
 {
   char buf[200];
-  char buf2[100];
-
-  if(DOOR_STATE_OPEN == m_door_state) {
-    strcpy(buf, "Auf<br>");
-  } else if(DOOR_STATE_CLOSED == m_door_state) {
-    strcpy(buf, "Zu<br>");
-  } else if(DOOR_STATE_TRAVEL == m_door_state) {
-    strcpy(buf, "Fährt<br>");
-  } else {
-    strcpy(buf, "?<br>");
-  }
-
+  char open_time[20];
+  char close_time[20];
 
   const sunriseset_t *sunriseset = NULL;
   time_t ltime;
@@ -252,45 +246,13 @@ void handleGetState(void)
 
   sunriseset = &g_sun_rise_set[day];
   int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
+  sprintf(open_time, "%02d:%02d", sunriseset->rise / 3600, (sunriseset->rise / 60) % 60);
+  sprintf(close_time, "%02d:%02d", sunriseset->set / 3600, (sunriseset->set / 60) % 60);
 
-  
-  
-  sprintf(buf2, "<br>Auf: %02d:%02d <br> Zu: %02d:%02d", 
-    sunriseset->rise / 3600, (sunriseset->rise / 60) % 60, 
-    sunriseset->set / 3600, (sunriseset->set / 60) % 60
-  );        
+  // control mode, door state, open time, close time
+  sprintf(buf, "%d, %d; %s; %s", m_ctrl_mode, m_door_state, open_time, close_time);
 
-  strcat(buf, buf2);
-  
   m_server.send(200, "text/plane", buf);
-}
-
-void handleGetNextDateTimeCtrl(void)
-{
-  
-  const sunriseset_t *sunriseset = NULL;
-  time_t ltime;
-  time(&ltime);
-  tm * ptm = localtime(&ltime);
-
-  int day = ptm->tm_yday;
-
-  if (day < 0 || day > ARRAYSIZE(g_sun_rise_set)) {
-      day = 364 / 2;
-  }
-
-  sunriseset = &g_sun_rise_set[day];
-  int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
-
-  char buf[100];
-  
-  sprintf(buf, "Auf: %02d:%02d  Zu: %02d:%02d", 
-    sunriseset->rise / 3600, (sunriseset->rise / 60) % 60, 
-    sunriseset->set / 3600, (sunriseset->set / 60) % 60
-  );        
-  
-  m_server.send(200, "text/plane", buf);
-  Serial.println(buf);
 }
 
 void handleGetApList(void)
@@ -327,18 +289,25 @@ void handleSetWifi(void)
 
 void handleSetCtrl(void)
 {
+  int ctrl = m_server.arg("data").toInt();
 
-  m_test_enabled = 0;
-  m_ctrl = m_server.arg("data").toInt();
+  if(ctrl < 10) {
+    m_ctrl = ctrl;
+  } else if(ctrl == 100) {
+    m_ctrl_mode = CTRL_MODE_MANUAL;
+  } if(ctrl == 101) {
+    m_ctrl_mode = CTRL_MODE_TIME;
+  }
 
   char buf[50];
   sprintf(buf, "setCtrl: %d", m_ctrl);
-
   Serial.println(buf);
 }
 
 void do_wifi(void)
 {
+  static unsigned long last_con_check = 0;
+
   switch(m_app_state) {
     case STATE_WIFI_INIT:
       break;
@@ -384,8 +353,17 @@ void do_wifi(void)
       }
       break;
 
-
     case STATE_WIFI_CLIENT_CONNECTED:
+      if((millis() - last_con_check)) > 15000) {
+        if (WiFi.status() != WL_CONNECTED) {
+          m_app_state = STATE_WIFI_CLIENT_INIT;
+        }
+        last_con_check = millis();
+      }
+      m_dns_server.processNextRequest();
+      m_server.handleClient();
+      break:
+
     case STATE_WIFI_ACTIVE:
       m_dns_server.processNextRequest();
       m_server.handleClient();
@@ -393,63 +371,76 @@ void do_wifi(void)
   }
 }
 
-void do_buttons(void)
+void do_bin_inputs(void)
 {
   static unsigned long timeout = 0;
+  static unsigned long ap_init_timeout = 0;
+  int bin_inputs = 0;
 
-  if((millis() - timeout) > 50) {    
-    if(digitalRead(TOP_SWITCH_PIN) == 0){
-      m_buttons |= 1 << TOP_SWITCH_BIT;
+  if((millis() - timeout) > 100) {
+    if(digitalRead(TOP_SWITCH_PIN) == 0) {
+      bin_inputs |= 1 << TOP_SWITCH_BIT;
     } else {
-      m_buttons &= ~(1 << TOP_SWITCH_BIT);
+      bin_inputs &= ~(1 << TOP_SWITCH_BIT);
     }
-    if(digitalRead(BOTTOM_SWITCH_PIN) == 0){
-      m_buttons |= 1 << BOTTOM_SWITCH_BIT;
+    if(digitalRead(BOTTOM_SWITCH_PIN) == 0) {
+      bin_inputs |= 1 << BOTTOM_SWITCH_BIT;
     } else {
-      m_buttons &= ~(1 << BOTTOM_SWITCH_BIT);
+      bin_inputs &= ~(1 << BOTTOM_SWITCH_BIT);
     }
-    if(digitalRead(STOP_SWITCH_PIN) == 0){
-      m_buttons |= 1 << STOP_SWITCH_BIT;
+    if(digitalRead(STOP_SWITCH_PIN) == 0) {
+      bin_inputs |= 1 << STOP_SWITCH_BIT;
     } else {
-      m_buttons &= ~(1 << STOP_SWITCH_BIT);
+      bin_inputs &= ~(1 << STOP_SWITCH_BIT);
     }
-    
-    if(digitalRead(UP_BUTTON_PIN) == 0){
-      m_buttons |= 1 << UP_BUTTON_BIT;
+
+    if(digitalRead(UP_BUTTON_PIN) == 0) {
+      bin_inputs |= 1 << UP_BUTTON_BIT;
     } else {
-      m_buttons &= ~(1 << UP_BUTTON_BIT);
+      bin_inputs &= ~(1 << UP_BUTTON_BIT);
     }
-    if(digitalRead(DOWN_BUTTON_PIN) == 0){
-      m_buttons |= 1 << DOWN_BUTTON_BIT;
+    if(digitalRead(DOWN_BUTTON_PIN) == 0) {
+      bin_inputs |= 1 << DOWN_BUTTON_BIT;
     } else {
-      m_buttons &= ~(1 << DOWN_BUTTON_BIT);
+      bin_inputs &= ~(1 << DOWN_BUTTON_BIT);
     }
-    if(digitalRead(STOP_BUTTON_PIN) == 0){
-      m_buttons |= 1 << STOP_BUTTON_BIT;
+    if(digitalRead(STOP_BUTTON_PIN) == 0) {
+      bin_inputs |= 1 << STOP_BUTTON_BIT;
     } else {
-      m_buttons &= ~(1 << STOP_BUTTON_BIT);
+      bin_inputs &= ~(1 << STOP_BUTTON_BIT);
     }
+
+    if(bin_inputs & ((1 << DOWN_BUTTON_BIT) || (1 << STOP_BUTTON_BIT))) {
+      if((millis() - ap_init_timeout) > 5000) {
+        m_app_state = STATE_WIFI_AP_INIT;
+      }
+    } else {
+      ap_init_timeout = millis();
+    }
+
+    m_bin_inputs = bin_inputs;
+
     timeout = millis();
   }
 /*
   String s = "";
 
-  if(m_buttons & (1 << TOP_SWITCH_BIT)) {
+  if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
     s += "TOP_SWITCH ";
   }
-  if(m_buttons & (1 << BOTTOM_SWITCH_BIT)) {
+  if(m_bin_inputs & (1 << BOTTOM_SWITCH_BIT)) {
     s += "BOTTOM_SWITCH ";
   }
-  if(m_buttons & (1 << STOP_SWITCH_BIT)) {
+  if(m_bin_inputs & (1 << STOP_SWITCH_BIT)) {
     s += "STOP_SWITCH ";
   }
-  if(m_buttons & (1 << UP_BUTTON_BIT)) {
+  if(m_bin_inputs & (1 << UP_BUTTON_BIT)) {
     s += "UP_BUTTON ";
   }
-  if(m_buttons & (1 << DOWN_BUTTON_BIT)) {
+  if(m_bin_inputs & (1 << DOWN_BUTTON_BIT)) {
     s += "DOWN_BUTTON ";
   }
-  if(m_buttons & (1 << STOP_BUTTON_BIT)) {
+  if(m_bin_inputs & (1 << STOP_BUTTON_BIT)) {
     s += "STOP_BUTTON ";
   }
 
@@ -462,10 +453,6 @@ void do_display(void)
   static unsigned long timeout = 0;
 
   switch(m_app_state) {
-    case STATE_DEFAULT:
-    case STATE_WIFI_CLIENT_CONNECTED:
-      m_u8x8.drawString(0, 0, "Chicken Guard");
-      break;
     case STATE_WIFI_AP_INIT:
       m_u8x8.drawString(0, 0, "Wifi Setup  ");
       break;
@@ -478,11 +465,28 @@ void do_display(void)
       if((millis() - timeout) > 1000) {
         char buf[30];
         time_t ltime;
+
+        // WiFi State
+        if (WiFi.status() == WL_CONNECTED) {
+          m_u8x8.drawString(0, 0, "WiFi Connected   ");
+        } else {
+          m_u8x8.drawString(0, 0, "WiFi Disconnected");
+        }
+
+        // DateTime
+        memset(buf, 0, sizeof(buf));
         time(&ltime);
         tm * ptm = localtime(&ltime);
         strftime(buf, 32, "%H:%M:%S", ptm);
         m_u8x8.drawString(0, 2, buf);
-        sprintf(buf, "State: %d  ", m_app_state);
+
+        // Control Mode
+        memset(buf, 0, sizeof(buf));
+        if (m_ctrl_mode == CTRL_MODE_TIME) {
+          strcpy(buf, "Time Control");
+        } else if (m_ctrl_mode == CTRL_MODE_MANUAL) {
+          strcpy(buf, "Manual Control");
+        }
         m_u8x8.drawString(0, 4, buf);
         timeout = millis();
       }
@@ -529,7 +533,7 @@ void do_ctrl(void)
   static int mot_ctrl = 0;
   static int last_ctrl = 0;
   static int duty = 0;
-  static int last_buttons = 0;
+  static int last_bin_inputs = 0;
   static int last_time_ctrl = 0;
 
   if(m_ctrl != last_ctrl) {
@@ -545,50 +549,61 @@ void do_ctrl(void)
   }
 
   // button control
-  if(m_buttons != last_buttons) {
-    if(m_buttons & (1 << UP_BUTTON_BIT)) {
+  if(m_bin_inputs != last_bin_inputs) {
+    if(m_bin_inputs & (1 << UP_BUTTON_BIT)) {
       m_ctrl = CTRL_OPEN;
-    } else if(m_buttons & (1 << DOWN_BUTTON_BIT)) {
+    } else if(m_bin_inputs & (1 << DOWN_BUTTON_BIT)) {
       m_ctrl = CTRL_CLOSE;
-    } else if(m_buttons & (1 << STOP_BUTTON_BIT)) {
+    } else if(m_bin_inputs & (1 << STOP_BUTTON_BIT)) {
       m_ctrl = CTRL_STOP;
     }
 
-    last_buttons = m_buttons;
+    last_bin_inputs = m_bin_inputs;
   }
 
   // limit switch check
   if(m_ctrl == CTRL_OPEN) {
-    if(m_buttons & (1 << TOP_SWITCH_BIT)) {
+    if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
       m_ctrl = CTRL_STOP;
       mot_ctrl = MOT_CTRL_STOP;
       last_ctrl = 0;
-      m_door_state = DOOR_STATE_OPEN;
     }
   }
 
   // limit switch check
   if(m_ctrl == CTRL_CLOSE) {
-    if(m_buttons & (1 << BOTTOM_SWITCH_BIT)) {
+    if(m_bin_inputs & (1 << BOTTOM_SWITCH_BIT)) {
       m_ctrl = CTRL_STOP;
       mot_ctrl = MOT_CTRL_STOP;
       last_ctrl = 0;
-      m_door_state = DOOR_STATE_CLOSED;
     }
   }
-  
+
   // stop switch check
-  if(m_buttons & (1 << STOP_SWITCH_BIT)) {
+  if(m_bin_inputs & (1 << STOP_SWITCH_BIT)) {
     m_ctrl = CTRL_STOP;
     mot_ctrl = MOT_CTRL_STOP;
     last_ctrl = 0;
   }
+
+  // Door State
+  if(((mot_ctrl = MOT_CTRL_OPEN) || (mot_ctrl = MOT_CTRL_CLOSE)) {
+    m_door_state = DOOR_STATE_TRAVEL;
+  } else if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
+    m_door_state = DOOR_STATE_OPEN;
+  } else if(m_bin_inputs & (1 << BOTTOM_SWITCH_BIT)) {
+    m_door_state = DOOR_STATE_CLOSED;
+  } else {
+    m_door_state = DOOR_STATE_STOPPED;
+  }
+
+
 /*
   // travel time check
   if(m_ctrl == CTRL_STOP) {
     travel_start_time = 0;
   }
-  
+
   if(travel_start_time) {
     if((millis() - travel_start_time) > settings.maxTravelTime) {
       m_ctrl = CTRL_STOP;
@@ -616,7 +631,7 @@ void do_ctrl(void)
         if(duty > 0) {
           duty -= 5;
           if(duty < 0) {
-            duty = 0;            
+            duty = 0;
           }
           mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
         }
@@ -629,15 +644,13 @@ void do_ctrl(void)
 
     case MOT_CTRL_IDLE:
         if(m_ctrl == CTRL_OPEN) {
-          digitalWrite(MOT_DIR_PIN, MOT_DIR_OPEN);          
+          digitalWrite(MOT_DIR_PIN, MOT_DIR_OPEN);
           mot_ctrl = MOT_CTRL_OPEN;
           travel_start_time = millis();
-          m_door_state = DOOR_STATE_TRAVEL;
         } else if(m_ctrl == CTRL_CLOSE) {
-          digitalWrite(MOT_DIR_PIN, MOT_DIR_CLOSE);          
+          digitalWrite(MOT_DIR_PIN, MOT_DIR_CLOSE);
           mot_ctrl = MOT_CTRL_CLOSE;
           travel_start_time = millis();
-          m_door_state = DOOR_STATE_TRAVEL;
         }
       break;
 
@@ -656,37 +669,35 @@ void do_ctrl(void)
 
 void do_sunriseset_ctrl(void)
 {
-    const sunriseset_t *sunriseset = NULL;
-    time_t ltime;
-    time(&ltime);
-    tm * ptm = localtime(&ltime);
+  if(m_ctrl_mode != CTRL_MODE_TIME) {
+    return;
+  }
 
-    int day = ptm->tm_yday;
+  const sunriseset_t *sunriseset = NULL;
+  time_t ltime;
+  time(&ltime);
+  tm * ptm = localtime(&ltime);
 
-    if (day < 0 || day > ARRAYSIZE(g_sun_rise_set)) {
-        day = 364 / 2;
-    }
+  int day = ptm->tm_yday;
 
-    sunriseset = &g_sun_rise_set[day];
+  if (day < 0 || day > ARRAYSIZE(g_sun_rise_set)) {
+      day = 364 / 2;
+  }
 
-    int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60);
+  sunriseset = &g_sun_rise_set[day];
 
-    if (t >= sunriseset->rise && t < (sunriseset->rise + 1)) {
-        //if(m_door_state == DOOR_STATE_CLOSED) {
-          m_time_ctrl = CTRL_OPEN;
-        //}
-    }
-    if (t >= sunriseset->set && t >= (sunriseset->set + 1)) {
-      //if(m_door_state == DOOR_STATE_OPEN) {
-        m_time_ctrl = CTRL_CLOSE;
+  int t = (ptm->tm_hour * 3600) + (ptm->tm_min * 60) + ptm->tm_sec;
+
+  if (t >= sunriseset->rise && t < (sunriseset->rise + 10)) {
+      //if(m_door_state == DOOR_STATE_CLOSED) {
+        m_time_ctrl = CTRL_OPEN;
       //}
-    }
-/*
-Serial.println("Sun");
-Serial.println(t);
-Serial.println(sunriseset->rise);
-Serial.println(m_time_ctrl);
-*/
+  }
+  if (t >= sunriseset->set && t < (sunriseset->set + 10)) {
+    //if(m_door_state == DOOR_STATE_OPEN) {
+      m_time_ctrl = CTRL_CLOSE;
+    //}
+  }
 }
 
 void do_time_test(void)
@@ -699,63 +710,43 @@ void do_time_test(void)
     time_t ltime;
     time(&ltime);
     tm * ptm = localtime(&ltime);
-    
-    
+
+
     ptm->tm_year = 2019 - 1900;
     ptm->tm_mon = 3 - 1;
     ptm->tm_mday = 15;
     ptm->tm_hour = 6;
     ptm->tm_min = 38;
     ptm->tm_sec = 40;
-    
-    time_t t = mktime(ptm);    
-    struct timeval now = { .tv_sec = t };        
+
+    time_t t = mktime(ptm);
+    struct timeval now = { .tv_sec = t };
     settimeofday(&now, NULL);
-    
-    printLocalTime();    
+
+    printLocalTime();
     lock++;
   } else if(lock == 1 && m_door_state == DOOR_STATE_OPEN) {
     time_t ltime;
     time(&ltime);
     tm * ptm = localtime(&ltime);
-    
-    
+
+
     ptm->tm_year = 2019 - 1900;
     ptm->tm_mon = 3 - 1;
     ptm->tm_mday = 15;
     ptm->tm_hour = 18;
     ptm->tm_min = 27;
     ptm->tm_sec = 40;
-    
-    time_t t = mktime(ptm);    
-    struct timeval now = { .tv_sec = t };        
+
+    time_t t = mktime(ptm);
+    struct timeval now = { .tv_sec = t };
     settimeofday(&now, NULL);
-    
-    printLocalTime();    
+
+    printLocalTime();
     lock++;
   } else if(lock == 2 && m_door_state == DOOR_STATE_CLOSED) {
     lock = 0;
   }
-}
-
-void do_test(void)
-{
-/*
-  static unsigned long timeout = 0;
-
-  if((m_test_enabled & (millis() - timeout) > 4000)) {
-    if(m_door_state == DOOR_STATE_CLOSED) {
-      float distance = get_distance();
-      m_ctrl = 1;
-      Serial.println(distance);
-    } else if(m_door_state == DOOR_STATE_OPEN) {
-      float distance = get_distance();
-      m_ctrl = 2;
-      Serial.println(distance);
-    }
-    timeout = millis();
-  }
-*/
 }
 
 void setup(void)
@@ -810,9 +801,8 @@ void setup(void)
 
 void loop(void)
 {
-  do_sunriseset_ctrl();
-  do_test();
-  do_buttons();
+  do_sunriseset_ctrl();  
+  do_bin_inputs();
   do_ctrl();
   //do_ntp();
   do_dcf_decoding();
