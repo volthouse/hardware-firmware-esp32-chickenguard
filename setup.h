@@ -25,7 +25,7 @@ const char SETUP_page[] PROGMEM = R"=====(
 /* custom styles */
 body {
   padding: 4em;
-  background: #e5e5e5;  
+  background: #e5e5e5;
   font-family:verdana;
 }
 label {
@@ -40,7 +40,7 @@ input {
   width: 190px;
 }
 table, th, td {
-  border: none;  
+  border: none;
 }
 th, td {
   padding: 5px;
@@ -56,7 +56,7 @@ button{
     color:#fff;
     line-height:2.4rem;
     font-size:1.2rem;
-    width:100%; 
+    width:100%;
 }.q{float: right;width: 64px;text-align: right;}
 
 .flipswitch {
@@ -143,36 +143,32 @@ button{
     <th>SSID</th>
   </tr>
   <tr>
-    <td><select name="ssid" id = "ssid" style="width: 100%"><option>None</option></select></td>    
+    <td><select name="ssid" id = "ssid" style="width: 100%"><option>None</option></select></td>
   </tr>
   <tr>
-    <th>Password</th>    
+    <th>Password</th>
   </tr>
   <tr>
     <td><input type="password" name="pw" id="pw" value=""></td>
-  </tr>  
+  </tr>
   <tr>
     <td><button type="submit" onclick="setWifi()">Submit</button></td>
   </tr>
-  
-  
+
+
   <tr>
-    <th>Max Travel Duration UP (ms)</th>
+    <th>Max Travel Duration</th>
   </tr>
   <tr>
-    <td><input name="maxTravelUpDuration" id="maxTravelUpDuration" value=""></td>
+    <td><input name="maxTravelDuration" id="maxTravelDuration" value=""></td>
   </tr>
-  <tr>
-    <th>Max Travel Duration DOWN (ms)</th>
-  </tr>
-  <tr>
-    <td><input name="maxTravelDownDuration" id="maxTravelDownDuration" value=""></td>
-  </tr>
-  <tr>  
   <tr>
     <td><button type="submit" onclick="setCtrlSettings()">Submit</button></td>
   </tr>
-  
+  <tr>
+    <td><button type="submit" onclick="resetSettings()">Reset</button></td>
+  </tr>
+
 </table>
 <script>
 
@@ -188,40 +184,47 @@ function sendData(data) {
   xhttp.send();
 }
 
-function setWifi() {    
+function setWifi() {
   var s = "ssid=" + document.getElementById("ssid").value;
-  s += "&pw=" + document.getElementById("pw").value;  
-  
+  s += "&pw=" + document.getElementById("pw").value;
+
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setWifi", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  xhttp.send(s); 
+  xhttp.send(s);
 }
 
-function setCtrlSettings() {    
-  var s = "maxTravelUpDuration=" + document.getElementById("maxTravelUpDuration").value;
-  s += "&maxTravelDownDuration=" + document.getElementById("maxTravelDownDuration").value;  
-  
+function setCtrlSettings() {
+  var s = "maxTravelDuration=" + document.getElementById("maxTravelDuration").value;
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setCtrlSettings", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  xhttp.send(s); 
+  xhttp.send(s);
+}
+
+function resetSettings() {
+  var s = "";
+
+  var xhttp = new XMLHttpRequest();
+  xhttp.open("POST", "resetSettings", true);
+  xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
+  xhttp.send(s);
 }
 
 setInterval(function() {
     // Call a function repetatively
     // getDate();
-    
+
     if(document.getElementById("dateFlipswitch").checked) {
         var date = new Date();
         var currentDate = date.toISOString().slice(0,10);
-        var currentTime = date.toTimeString().split(' ')[0];        
+        var currentTime = date.toTimeString().split(' ')[0];
         document.getElementById("nowdate").value = currentDate;
         document.getElementById("nowtime").value = currentTime;
     }
 }, 1000); //1000mSeconds update rate
 
-function fillApList() {  
+function fillApList() {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
     if (this.readyState == 4 && this.status == 200) {

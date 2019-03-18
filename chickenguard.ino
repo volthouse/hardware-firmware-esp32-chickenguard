@@ -128,7 +128,7 @@ void init_settings(void)
   if(MAGIC_NO != settings.magicNo) {
     memset(&settings, 0, sizeof(settings));
     settings.magicNo = MAGIC_NO;
-    settings.maxTravelTime = 1000;
+    settings.maxTravelTime = 2000;
     DEBUG_PRINTLN("settings cleared");
   } else {
     DEBUG_PRINTLN(settings.ssid);
@@ -153,6 +153,8 @@ void init_server(void)
       m_server.on("/getApList", handleGetApList);
       m_server.on("/getState", handleGetState);
       m_server.on("/setCtrl", handleSetCtrl);
+      m_server.on("/resetSettings", handleResetSettings);
+      m_server.on("/setCtrlSettings", handleSetCtrlSettings);      
       m_server.on("/generate_204", handleRoot);  //Android captive portal. Maybe not needed. Might be handled by notFound handler.
       m_server.on("/fwlink", handleRoot);  //Microsoft captive portal. Maybe not needed. Might be handled by notFound handler.
       m_server.onNotFound ( handleNotFound );
@@ -295,6 +297,25 @@ void handleSetWifi(void)
   save_settings();
 
   m_app_state = STATE_WIFI_CLIENT_INIT;
+}
+
+void handleResetSettings(void)
+{
+  memset(&settings, 0, sizeof(settings));
+  save_settings();
+}
+
+void handleSetCtrlSettings(void)
+{
+  int maxTravelDuration = m_server.arg("maxTravelDuration").toInt();
+
+  settings.maxTravelTime = maxTravelDuration;
+  
+  save_settings();
+  
+  char buf[50];
+  sprintf(buf, "maxTravelDuration: %d", maxTravelDuration);
+  DEBUG_PRINTLN(buf);
 }
 
 void handleSetCtrl(void)

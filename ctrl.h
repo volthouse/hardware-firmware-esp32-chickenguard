@@ -25,7 +25,7 @@ const char CTRL_page[] PROGMEM = R"=====(
 /* custom styles */
 body {
   padding: 4em;
-  background: #e5e5e5;  
+  background: #e5e5e5;
   font-family:verdana;
 }
 label {
@@ -40,7 +40,7 @@ input {
   width: 190px;
 }
 table, th, td {
-  border: none;  
+  border: none;
 }
 th, td {
   padding: 5px;
@@ -56,7 +56,7 @@ button{
     color:#fff;
     line-height:2.4rem;
     font-size:5.2rem;
-    width:100%; 
+    width:100%;
     height: 100%;
 }
 
@@ -64,10 +64,10 @@ button{
 
 .flipswitch {
   position: relative;
-  width: 100%;   
+  width: 100%;
   -webkit-user-select:none;
   -moz-user-select:none;
-  -ms-user-select: none;  
+  -ms-user-select: none;
 }
 .flipswitch input[type=checkbox] {
   display: none;
@@ -94,7 +94,7 @@ button{
   width: 50%;
   height: 50px;
   padding: 0;
-  //line-height: 40px;
+  line-height: 40px;
   font-size: 18px;
   color: white;
   font-family: Trebuchet, Arial, sans-serif;
@@ -104,7 +104,7 @@ button{
   box-sizing: border-box;
 }
 .flipswitch-inner:before {
-  content: "Zeitsteuerung";
+  content: "Auto";
   padding-left: 12px;
   background-color: #1fa3ec;
   color: #FFFFFF;
@@ -125,7 +125,7 @@ button{
   position: absolute;
   top: 0;
   bottom: 0;
-  right: 96%;
+  right: 76%;
   -webkit-transition: all 0.3s ease-in 0s;
   -moz-transition: all 0.3s ease-in 0s;
   -ms-transition: all 0.3s ease-in 0s;
@@ -153,7 +153,7 @@ button{
 .item-state {
 background-color: #555;
 border-radius: 10px;
-  grid-area: state;  
+  grid-area: state;
 }
 .item-up {
   grid-area: up;
@@ -172,8 +172,8 @@ border-radius: 10px;
 .container {
   display: grid;
   grid-template-columns: auto;
-  grid-template-rows: 20% 20%  50% 5%;
-  grid-gap: 15px 10px;  
+  grid-template-rows: 20% 20%  50% 7.5%;
+  grid-gap: 15px 10px;
   grid-template-areas:
     "state up"
     "state down"
@@ -184,8 +184,8 @@ border-radius: 10px;
   align: stretch;
 }
 
-.verticalhorizontal {  
-    text-align: center;    
+.verticalhorizontal {
+    text-align: center;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
@@ -195,56 +195,95 @@ border-radius: 10px;
 <body>
 <!-- <div class="mobile-container"> -->
 
-  
+
 <div class="container">
-  <div class="item-state" align="center"><font id = "state" color="white" size="5.2rem">...</font></div>
+  <div class="item-state" align="center" id = "state"></div>
   <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(1)">AUF</button></div>
-  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>  
+  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>
   <div class="item-stop"><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">STOP</button></div>
   <div class="item-dtbtn">
-  
-<div class="flipswitch"><div class="flipswitch">
-    <input type="checkbox" name="flipswitch" class="flipswitch-cb" id="fs" onclick="checkDateTimeCtrl()" checked>
-    <label class="flipswitch-label" for="fs">
-        <div class="flipswitch-inner"></div>
-        <div class="flipswitch-switch"></div>
-    </label>
-</div>
-
-  
+    <div class="flipswitch"><div class="flipswitch">
+        <input type="checkbox" name="flipswitch" class="flipswitch-cb" id="fs" onclick="checkDateTimeCtrl()" unchecked>
+        <label class="flipswitch-label" for="fs">
+            <div class="flipswitch-inner"></div>
+            <div class="flipswitch-switch"></div>
+        </label>
+    </div>
   </div>
 </div>
 
 </div>
 <script>
-pentitle="SCSS Arrow Animation";
+
 function setCtrl(data) {
   var s = "data=" + data;
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setCtrl", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  xhttp.send(s); 
+  xhttp.send(s);
 }
 
 function checkDateTimeCtrl() {
-  var checkbox = document.getElementById('fluency');
-  if (checkbox.checked != true)
-  {
-    setCtrl(100);
+  var checkbox = document.getElementById('fs');
+  if (checkbox.checked != true) {
+    //setCtrl(100);   // Manuell
+    alert(100);
   } else {
-    setCtrl(101);
+    //setCtrl(101);   // Zeitsteuerung
+    alert(101);
   }
 }
 
-
 setInterval(function() {
-  getState();
+  // control mode, door state, open time, close time
+  //var s = "0;2;06:00;18:00";
+
+  var s = getState();
+
+  var r = s.split(";");
+  var ctrl_mode_str = "";
+  var ctrl_mode = parseInt(r[0]);
+  var door_state_str = "";
+  var door_state = parseInt(r[1]);
+
+  if(ctrl_mode == 0) {
+    ctrl_mode_str = "Manuell";
+  } else if(ctrl_mode == 1) {
+    ctrl_mode_str = "Zeitsteuerung";
+  }
+
+  if(door_state == 1) {
+    door_state_str = "Auf";
+  } else if(door_state == 2) {
+    door_state_str = "Zu";
+  } else if(door_state == 3) {
+    door_state_str = "Fährt";
+  } else if(door_state == 4) {
+    door_state_str = "Steht";
+  }
+
+  var h = "";
+
+  h += "<font size=5.2rem color = white><table style='width:100%'>";
+  h += "<tr><th align='center'>Modus</th></tr>";
+  h += "<tr><td>" + ctrl_mode_str + "</td></tr>";
+  h += "<tr><th>Zustand</th></tr>";
+  h += "<tr><td>" + door_state_str + "</td></tr>";
+  if(ctrl_mode == 1) {
+    h += "<tr><th>Zeitsteuerung</th></tr>";
+    h += "<tr><td> Auf:" + r[2] + " Uhr</td></tr>";
+    h += "<tr><td> Zu :" + r[3] + " Uhr</td>";
+  }
+  h += "</tr></table></font>";
+
+  document.getElementById("state").innerHTML = h;
+
 }, 1000); //1000mSeconds update rate
 
-function getState() {  
+function getState() {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) { 
+    if (this.readyState == 4 && this.status == 200) {
       document.getElementById("state").innerText = this.responseText;
     }
   };
@@ -255,7 +294,7 @@ function getState() {
 function getNextDateTimeCtrl() {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) { 
+    if (this.readyState == 4 && this.status == 200) {
       document.getElementById("state").innerHTML = this.responseText;
     }
   };
