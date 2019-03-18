@@ -11,6 +11,8 @@
 #define DCF_T5  120             // T5: DCF_T4+1 .. DCF_T6-1 [s�100]
 #define DCF_T6  220             // T6: DCF_T5+1 ..   250    [s�100]
 
+#define DCF_PIN 34
+
 typedef enum                    // Ereignisse der DCF-PWM Abtastung
 {   DCF_0    = '0',             // � Null erkannt
     DCF_1    = '1',             // � Eins erkannt
@@ -55,7 +57,7 @@ static volatile uint8_t  state = 0;
 static volatile uint8_t  tenMs = 0;
 
 static uint8_t  dcf_get_pin_state(void)   { 
-  return !digitalRead(34);
+  return !digitalRead(DCF_PIN);
 }
  
 void IRAM_ATTR dcf_on_timer() {
@@ -205,7 +207,7 @@ void do_dcf_decoding(void)
 
 
 void dcf_setup() {
-  pinMode(34, INPUT);
+  pinMode(DCF_PIN, INPUT);
  
   timer = timerBegin(0, 80, true);
   timerAttachInterrupt(timer, &dcf_on_timer, true);
