@@ -15,6 +15,16 @@
 #include "dcf.h"
 #include "sunriseset.h"
 
+#ifdef DEBUG
+ #define DEBUG_PRINT(x)     Serial.print (x)
+ #define DEBUG_PRINTDEC(x)  Serial.print (x, DEC)
+ #define DEBUG_PRINTLN(x)   Serial.println (x)
+#else
+ #define DEBUG_PRINT(x)
+ #define DEBUG_PRINTDEC(x)
+ #define DEBUG_PRINTLN(x) 
+#endif
+
 #define ARRAYSIZE(x) (sizeof x / sizeof x[0])
 
 #define STATE_DEFAULT                0
@@ -110,7 +120,7 @@ struct {
 void init_settings(void)
 {
   if (!EEPROM.begin(sizeof(settings))) {
-    Serial.println("failed to initialise EEPROM");
+    DEBUG_PRINTLN("failed to initialise EEPROM");
   }
 
   EEPROM.readBytes(0, &settings, sizeof(settings));
@@ -119,10 +129,10 @@ void init_settings(void)
     memset(&settings, 0, sizeof(settings));
     settings.magicNo = MAGIC_NO;
     settings.maxTravelTime = 1000;
-    Serial.println("settings cleared");
+    DEBUG_PRINTLN("settings cleared");
   } else {
-    Serial.println(settings.ssid);
-    Serial.println(settings.pw);
+    DEBUG_PRINTLN(settings.ssid);
+    DEBUG_PRINTLN(settings.pw);
   }
 }
 
@@ -148,7 +158,7 @@ void init_server(void)
       m_server.onNotFound ( handleNotFound );
       m_server.begin();
       m_server_initialized = true;
-      Serial.println("HTTP m_server started");
+      DEBUG_PRINTLN("HTTP m_server started");
     }
 }
 
@@ -156,11 +166,11 @@ void printLocalTime(void)
 {
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
-    Serial.println("Failed to obtain time");
+    DEBUG_PRINTLN("Failed to obtain time");
     return;
   }
-  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-  Serial.println(timeinfo.tm_yday);
+  DEBUG_PRINTLN(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  DEBUG_PRINTLN(timeinfo.tm_yday);
 }
 
 boolean isIp(String str) {
@@ -184,7 +194,7 @@ String toStringIp(IPAddress ip) {
 
 boolean captivePortal(void) {
   if (!isIp(m_server.hostHeader()) && m_server.hostHeader() != (String(myHostname)+".local")) {
-    Serial.print("Request redirected to captive portal");
+    DEBUG_PRINT("Request redirected to captive portal");
     m_server.sendHeader("Location", String("http://") + toStringIp(m_server.client().localIP()), true);
     m_server.send ( 302, "text/plain", ""); // Empty content inhibits Content-length header so we have to close the socket ourselves.
     m_server.client().stop(); // Stop is needed because we sent no content length
@@ -273,12 +283,12 @@ void handleGetApList(void)
 
 void handleSetWifi(void)
 {
-  Serial.println("setWifi");
+  DEBUG_PRINTLN("setWifi");
   String ssid = m_server.arg("ssid");
   String pw = m_server.arg("pw");
 
-  //Serial.println(ssid);
-  //Serial.println(pw);
+  //DEBUG_PRINTLN(ssid);
+  //DEBUG_PRINTLN(pw);
 
   strncpy(settings.ssid, ssid.c_str(), sizeof(settings.ssid));
   strncpy(settings.pw, pw.c_str(), sizeof(settings.pw));
@@ -301,7 +311,7 @@ void handleSetCtrl(void)
 
   char buf[50];
   sprintf(buf, "setCtrl: %d", m_ctrl);
-  Serial.println(buf);
+  DEBUG_PRINTLN(buf);
 }
 
 void do_wifi(void)
@@ -316,8 +326,8 @@ void do_wifi(void)
       WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
       WiFi.softAP("Chicken-Guard");
       delay(500);
-      Serial.print("AP IP address: ");
-      Serial.println(WiFi.softAPIP());
+      DEBUG_PRINT("AP IP address: ");
+      DEBUG_PRINTLN(WiFi.softAPIP());
       init_server();
       m_app_state = STATE_WIFI_ACTIVE;
       break;
@@ -332,19 +342,19 @@ void do_wifi(void)
 
     case STATE_WIFI_CLIENT_CONNECTING:
       if (WiFi.status() != WL_CONNECTED) {
-          Serial.print(".");
+          DEBUG_PRINT(".");
       } else {
-          Serial.println("CONNECTED");
-          Serial.println("");
-          Serial.print("Connected to ");
-          Serial.print("IP address: ");
-          Serial.println(WiFi.localIP());
+          DEBUG_PRINTLN("CONNECTED");
+          DEBUG_PRINTLN("");
+          DEBUG_PRINT("Connected to ");
+          DEBUG_PRINT("IP address: ");
+          DEBUG_PRINTLN(WiFi.localIP());
 
           // Setup MDNS responder
           if (!MDNS.begin(myHostname)) {
-            Serial.println("Error setting up MDNS responder!");
+            DEBUG_PRINTLN("Error setting up MDNS responder!");
           } else {
-            Serial.println("mDNS responder started");
+            DEBUG_PRINTLN("mDNS responder started");
             // Add service to MDNS-SD
             MDNS.addService("http", "tcp", 80);
           }
@@ -444,7 +454,7 @@ void do_bin_inputs(void)
     s += "STOP_BUTTON ";
   }
 
-  Serial.println(s);
+  DEBUG_PRINTLN(s);
 */
 }
 
@@ -544,7 +554,7 @@ void do_ctrl(void)
   // date time control sun rise or set
   if(m_time_ctrl != last_time_ctrl) {
     m_ctrl = m_time_ctrl;
-    Serial.println("Time ctrl........................................");
+    DEBUG_PRINTLN("Time ctrl........................................");
     last_time_ctrl = m_time_ctrl;
   }
 
