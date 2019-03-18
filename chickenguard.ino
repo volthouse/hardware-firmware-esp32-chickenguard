@@ -171,8 +171,8 @@ void printLocalTime(void)
     DEBUG_PRINTLN("Failed to obtain time");
     return;
   }
-  DEBUG_PRINTLN(&timeinfo, "%A, %B %d %Y %H:%M:%S");
-  DEBUG_PRINTLN(timeinfo.tm_yday);
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  Serial.println(timeinfo.tm_yday);
 }
 
 boolean isIp(String str) {
@@ -385,7 +385,7 @@ void do_wifi(void)
       break;
 
     case STATE_WIFI_CLIENT_CONNECTED:
-      if((millis() - last_con_check)) > 15000) {
+      if((millis() - last_con_check) > 15000) {
         if (WiFi.status() != WL_CONNECTED) {
           m_app_state = STATE_WIFI_CLIENT_INIT;
         }
@@ -393,7 +393,7 @@ void do_wifi(void)
       }
       m_dns_server.processNextRequest();
       m_server.handleClient();
-      break:
+      break;
 
     case STATE_WIFI_ACTIVE:
       m_dns_server.processNextRequest();
@@ -618,7 +618,7 @@ void do_ctrl(void)
   }
 
   // Door State
-  if(((mot_ctrl = MOT_CTRL_OPEN) || (mot_ctrl = MOT_CTRL_CLOSE)) {
+  if((mot_ctrl = MOT_CTRL_OPEN) || (mot_ctrl = MOT_CTRL_CLOSE)) {
     m_door_state = DOOR_STATE_TRAVEL;
   } else if(m_bin_inputs & (1 << TOP_SWITCH_BIT)) {
     m_door_state = DOOR_STATE_OPEN;
