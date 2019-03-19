@@ -192,9 +192,10 @@ border-radius: 10px;
 }
 
 </style>
-<body>
-<!-- <div class="mobile-container"> -->
 
+<body onLoad = "init()">
+
+<div id = "mobile-container" class="">
 
 <div class="container">
   <div class="item-state" align="center" id = "state"></div>
@@ -214,6 +215,20 @@ border-radius: 10px;
 
 </div>
 <script>
+
+function init() {
+  var element = document.getElementById("mobile-container");
+/*
+  if(!isMobileDevice()) {
+      element.classList.add("mobile-container");
+  }
+*/
+  getSettings();
+}
+
+function isMobileDevice() {
+    return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+};
 
 function setCtrl(data) {
   var s = "data=" + data;
@@ -235,10 +250,10 @@ function checkDateTimeCtrl() {
 }
 
 setInterval(function() {
-  
+
   getState();
 
-}, 1000); //1000mSeconds update rate
+}, 500); //500mSeconds update rate
 
 function getState() {
   var xhttp = new XMLHttpRequest();
@@ -292,7 +307,6 @@ function updateState(s) {
   h += "</tr></table></font>";
 
   document.getElementById("state").innerHTML = h;
-
 }
 
 function getNextDateTimeCtrl() {
@@ -304,6 +318,26 @@ function getNextDateTimeCtrl() {
   };
   xhttp.open("GET", "getNextDateTimeCtrl", true);
   xhttp.send();
+}
+
+function getSettings() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      updateSettings(this.responseText);
+    }
+  };
+  xhttp.open("GET", "getSettings", true);
+  xhttp.send();
+}
+
+function updateSettings(s) {
+  // // ctrlMode; maxTravelDuration; stopDuration
+
+  var r = s.split(";");
+  var ctrl_mode = parseInt(r[0]);
+
+  document.getElementById("fs").checked = (ctrl_mode == 1);
 }
 
 </script>

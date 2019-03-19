@@ -24,7 +24,7 @@
 /* custom styles */
 body {
   padding: 4em;
-  background: #e5e5e5;  
+  background: #e5e5e5;
   font-family:verdana;
 }
 label {
@@ -39,7 +39,7 @@ input {
   width: 190px;
 }
 table, th, td {
-  border: none;  
+  border: none;
 }
 th, td {
   padding: 5px;
@@ -55,7 +55,7 @@ button{
     color:#fff;
     line-height:2.4rem;
     font-size:5.2rem;
-    width:100%; 
+    width:100%;
     height: 100%;
 }
 
@@ -63,10 +63,10 @@ button{
 
 .flipswitch {
   position: relative;
-  width: 100%;   
+  width: 100%;
   -webkit-user-select:none;
   -moz-user-select:none;
-  -ms-user-select: none;  
+  -ms-user-select: none;
 }
 .flipswitch input[type=checkbox] {
   display: none;
@@ -152,7 +152,7 @@ button{
 .item-state {
 background-color: #555;
 border-radius: 10px;
-  grid-area: state;  
+  grid-area: state;
 }
 .item-up {
   grid-area: up;
@@ -171,8 +171,8 @@ border-radius: 10px;
 .container {
   display: grid;
   grid-template-columns: auto;
-  grid-template-rows: 20% 20%  50% 7.5%;
-  grid-gap: 15px 10px;  
+  grid-template-rows: 20% 20%  50% 8%;
+  grid-gap: 15px 10px;
   grid-template-areas:
     "state up"
     "state down"
@@ -183,87 +183,116 @@ border-radius: 10px;
   align: stretch;
 }
 
-.verticalhorizontal {  
-    text-align: center;    
+.verticalhorizontal {
+    text-align: center;
     position: relative;
     top: 50%;
     transform: translateY(-50%);
 }
 
 </style>
-<body>
-<!-- <div class="mobile-container"> -->
 
-  
+<body onLoad = "init()">
+
+<div id = "mobile-container" class="">
+
 <div class="container">
   <div class="item-state" align="center" id = "state"></div>
-  <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(1)">AUF</button></div>
-  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(2)">ZU</button></div>  
+  <div class="item-up"><button type="submit" id="CTRL1" onclick="setCtrl(2)">AUF</button></div>
+  <div class="item-down"><button type="submit" id="CTRL2" onclick="setCtrl(1)">ZU</button></div>
   <div class="item-stop"><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">STOP</button></div>
-  <div class="item-dtbtn">  
+  <div class="item-dtbtn">
     <div class="flipswitch"><div class="flipswitch">
         <input type="checkbox" name="flipswitch" class="flipswitch-cb" id="fs" onclick="checkDateTimeCtrl()" unchecked>
         <label class="flipswitch-label" for="fs">
             <div class="flipswitch-inner"></div>
             <div class="flipswitch-switch"></div>
         </label>
-    </div>  
+    </div>
   </div>
 </div>
 
 </div>
 <script>
 
+function init() {
+  var element = document.getElementById("mobile-container");
+/*
+  if(!isMobileDevice()) {
+      element.classList.add("mobile-container");
+  }
+*/
+  getSettings();
+}
+
+function isMobileDevice() {
+    return (typeof window.orientation !== "undefined") || (navigator.userAgent.indexOf('IEMobile') !== -1);
+};
+
 function setCtrl(data) {
   var s = "data=" + data;
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setCtrl", true);
   xhttp.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-  xhttp.send(s); 
+  xhttp.send(s);
 }
 
 function checkDateTimeCtrl() {
-  var checkbox = document.getElementById('fs');  
+  var checkbox = document.getElementById('fs');
   if (checkbox.checked != true) {
-    //setCtrl(100);   // Manuell
-    alert(100);
+    setCtrl(100);   // Manuell
+    //alert(100);
   } else {
-    //setCtrl(101);   // Zeitsteuerung
-    alert(101);
-  }  
+    setCtrl(101);   // Zeitsteuerung
+    //alert(101);
+  }
 }
 
+setInterval(function() {
 
-setInterval(function() {  
+  getState();
+
+}, 500); //500mSeconds update rate
+
+function getState() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      updateState(this.responseText);
+    }
+  };
+  xhttp.open("GET", "getState", true);
+  xhttp.send();
+}
+
+function updateState(s) {
   // control mode, door state, open time, close time
-  var s = "0;2;06:00;18:00";
+  //var s = "0;2;06:00;18:00";
 
-  //s = getState();
-  
   var r = s.split(";");
   var ctrl_mode_str = "";
   var ctrl_mode = parseInt(r[0]);
   var door_state_str = "";
-  var door_state = parseInt(r[1]);  
-  
+  var door_state = parseInt(r[1]);
+
   if(ctrl_mode == 0) {
     ctrl_mode_str = "Manuell";
   } else if(ctrl_mode == 1) {
     ctrl_mode_str = "Zeitsteuerung";
   }
-  
+
   if(door_state == 1) {
     door_state_str = "Auf";
   } else if(door_state == 2) {
     door_state_str = "Zu";
   } else if(door_state == 3) {
-    door_state_str = "Fährt";
-  } else if(door_state == 4) {
+    door_state_str = "F&auml;hrt";
+  } else {
     door_state_str = "Steht";
   }
-  
+
   var h = "";
-  
+
   h += "<font size=5.2rem color = white><table style='width:100%'>";
   h += "<tr><th align='center'>Modus</th></tr>";
   h += "<tr><td>" + ctrl_mode_str + "</td></tr>";
@@ -275,31 +304,39 @@ setInterval(function() {
     h += "<tr><td> Zu :" + r[3] + " Uhr</td>";
   }
   h += "</tr></table></font>";
-  
-  document.getElementById("state").innerHTML = h;
-  
-}, 1000); //1000mSeconds update rate
 
-function getState() {  
-  var xhttp = new XMLHttpRequest();
-  xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) { 
-      document.getElementById("state").innerText = this.responseText;
-    }
-  };
-  xhttp.open("GET", "getState", true);
-  xhttp.send();
+  document.getElementById("state").innerHTML = h;
 }
 
 function getNextDateTimeCtrl() {
   var xhttp = new XMLHttpRequest();
   xhttp.onreadystatechange = function() {
-    if (this.readyState == 4 && this.status == 200) { 
+    if (this.readyState == 4 && this.status == 200) {
       document.getElementById("state").innerHTML = this.responseText;
     }
   };
   xhttp.open("GET", "getNextDateTimeCtrl", true);
   xhttp.send();
+}
+
+function getSettings() {
+  var xhttp = new XMLHttpRequest();
+  xhttp.onreadystatechange = function() {
+    if (this.readyState == 4 && this.status == 200) {
+      updateSettings(this.responseText);
+    }
+  };
+  xhttp.open("GET", "getSettings", true);
+  xhttp.send();
+}
+
+function updateSettings(s) {
+  // // ctrlMode; maxTravelDuration; stopDuration
+
+  var r = s.split(";");
+  var ctrl_mode = parseInt(r[0]);
+
+  document.getElementById("fs").checked = (ctrl_mode == 1);
 }
 
 </script>
