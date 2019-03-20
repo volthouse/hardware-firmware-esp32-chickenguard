@@ -25,14 +25,21 @@ button{
     height: 100%;
 }
 
-.status{
+.statusframe{
     border:0;
     border-radius:0.3rem;
     background-color:grey;
     color:#fff;
-    line-height:2.4rem;
-    font-size:3.2rem;
     width:150%;
+}
+
+.statusText{
+    color:#fff;    
+    font-size:3.2rem;  
+    text-align: center;
+    font-family: Trebuchet, Arial, sans-serif;
+    text-align: center;
+    vertical-align: top;
 }
 
 .flipswitch {
@@ -135,7 +142,21 @@ html, body, #wrapper {
 <div id = "mobile-container" class="">
   <table id="wrapper" >
     <tr>
-      <td rowspan = "4" class="status"><div  align="center" id = "state">...</div> </td>
+      <td rowspan = "4" class="statusFrame"><div id = "state" align="center">
+  
+  
+<!--  <table class="statusText">
+  <tr><th style="color: black;">MODUS</th></tr>
+  <tr><td>Zeitsteuerung</td></tr>
+  <tr><th style="color: black;">ZUSTAND</th></tr>
+  <tr><td>Auf</td></tr>
+  <tr><th style="color: black;">ZEITSTEUERUNG</th></tr>
+  <tr><td> Auf: 06:38 Uhr</td></tr>
+  <tr><td> Zu : 18:42 Uhr</td></tr>
+  </table>    -->
+       
+  
+      </div></td>
       <td><button type="submit" id="CTRL1" onclick="setCtrl(2)">AUF</button></td>
     </tr>
     <tr>
@@ -145,7 +166,7 @@ html, body, #wrapper {
       <td><button type="submit" id="CTRL0" onclick="setCtrl(0)" style="background: #FF0000">STOP</button></td>
     </tr>
     <tr>
-      <td height="10%">
+      <td>
         <div class="flipswitch"><div class="flipswitch">
           <input type="checkbox" name="flipswitch" class="flipswitch-cb" id="fs" onclick="checkDateTimeCtrl()" unchecked>
           <label class="flipswitch-label" for="fs">
@@ -196,6 +217,7 @@ function checkDateTimeCtrl() {
 setInterval(function() {
 
   getState();
+  //test();
 
 }, 500); //500mSeconds update rate
 
@@ -237,18 +259,29 @@ function updateState(s) {
   }
 
   var h = "";
-
-  h += "<font size=5.2rem color = white><table style='width:100%'>";
-  h += "<tr><th align='center'>Modus</th></tr>";
+  /*
+  <table class="statusText">
+  <tr><th style="color: black;">Modus</th></tr>
+  <tr><td>Zeitsteuerung</td></tr>
+  <tr><th style="color: black;">Zustand</th></tr>
+  <tr><td>Auf</td></tr>
+  <tr><th style="color: black;">Zeitsteuerung</th></tr>
+  <tr><td> Auf: 06:38 Uhr</td></tr>
+  <tr><td> Zu : 18:42 Uhr</td></tr>
+</table> 
+  */
+  
+  h += "<table class='statusText'>";
+  h += "<tr><th style='color: black;'>MODUS</th></tr>";
   h += "<tr><td>" + ctrl_mode_str + "</td></tr>";
-  h += "<tr><th>Zustand</th></tr>";
+  h += "<tr><th style='color: black;'>ZUSTAND</th></tr>";
   h += "<tr><td>" + door_state_str + "</td></tr>";
   if(ctrl_mode == 1) {
-    h += "<tr><th>Zeitsteuerung</th></tr>";
+    h += "<tr><th style='color: black;'>ZEITSTEUERUNG</th></tr>";
     h += "<tr><td> Auf:" + r[2] + " Uhr</td></tr>";
     h += "<tr><td> Zu :" + r[3] + " Uhr</td>";
-  }
-  h += "</tr></table></font>";
+  }  
+  h += "</tr></table>";
 
   document.getElementById("state").innerHTML = h;
 }
@@ -284,7 +317,26 @@ function updateSettings(s) {
   document.getElementById("fs").checked = (ctrl_mode == 1);
 }
 
+function test() {
+  var h ="";
+  h += "<table class='statusText'>";
+  h += "<tr><th style='color: black;'>Modus</th></tr>";
+  h += "<tr><td>Zeitsteuerung</td></tr>";
+  h += "<tr><th style='color: black;'>Zustand</th></tr>";
+  h += "<tr><td>AUF</td></tr>";
+  if(1) {
+  h += "<tr><th style='color: black;'>Zeitsteuerung</th></tr>";
+  h += "<tr><td> Auf: 06:38 Uhr</td></tr>";
+  h += "<tr><td> Zu : 18:34 Uhr</td>";
+  }  
+  h += "</tr></table>";
+
+  document.getElementById("state").innerHTML = h;
+
+}
+
 </script>
 </body>
+</html>
 </html>
 )=====";

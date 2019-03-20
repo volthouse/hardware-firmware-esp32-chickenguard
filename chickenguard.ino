@@ -369,6 +369,7 @@ void handleSetCtrl(void)
 void do_wifi(void)
 {
   static unsigned long last_con_check = 0;
+  static int disconnected = 0;
 
   switch(m_app_state) {
     case STATE_WIFI_INIT:
@@ -416,9 +417,18 @@ void do_wifi(void)
       break;
 
     case STATE_WIFI_CLIENT_CONNECTED:
-      if((millis() - last_con_check) > 15000) {
-        if (WiFi.status() != WL_CONNECTED) {
-          m_app_state = STATE_WIFI_CLIENT_INIT;
+      if((millis() - last_con_check) > 30000) {
+        if (WiFi.status() == WL_DISCONNECTED) {
+          disconnected = true;
+          DEBUG_PRINTLN("Wifi disconnected");
+        } else if(disconnected) {
+          if (WiFi.status() == WL_CONNECTED) {
+            WiFi.disconnect();
+            WiFi.mode(WIFI_STA);
+            WiFi.begin(settings.ssid, settings.pw);
+            disconnected = false;
+            DEBUG_PRINTLN("Wifi reconnected");
+          }
         }
         last_con_check = millis();
       }
