@@ -280,7 +280,11 @@ function updateState(s) {
     h += "<tr><th style='color: black;'>ZEITSTEUERUNG</th></tr>";
     h += "<tr><td> Auf:" + r[2] + " Uhr</td></tr>";
     h += "<tr><td> Zu :" + r[3] + " Uhr</td>";
-  }  
+  } else {
+    h += "<tr><th style='color: black;'> </th></tr>";
+    h += "<tr><td> </td></tr>";
+    h += "<tr><td> </td>";
+  }
   h += "</tr></table>";
 
   document.getElementById("state").innerHTML = h;

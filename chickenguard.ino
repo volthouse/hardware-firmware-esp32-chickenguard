@@ -369,7 +369,8 @@ void handleSetCtrl(void)
 void do_wifi(void)
 {
   static unsigned long last_con_check = 0;
-  static int disconnected = 0;
+  static unsigned long last_mdns_update = 0;
+  static int disconnected = 0;  
 
   switch(m_app_state) {
     case STATE_WIFI_INIT:
@@ -412,6 +413,7 @@ void do_wifi(void)
             MDNS.addService("http", "tcp", 80);
           }
 
+          last_mdns_update = millis();
           m_app_state = STATE_WIFI_CLIENT_CONNECTED;
       }
       break;
@@ -426,11 +428,34 @@ void do_wifi(void)
             WiFi.disconnect();
             WiFi.mode(WIFI_STA);
             WiFi.begin(settings.ssid, settings.pw);
+
+            // Setup MDNS responder
+            MDNS.end();             
+            if (!MDNS.begin(myHostname)) {
+              DEBUG_PRINTLN("Error setting up MDNS responder!");
+            } else {
+              DEBUG_PRINTLN("mDNS responder started");
+              // Add service to MDNS-SD
+              MDNS.addService("http", "tcp", 80);
+            }
+            
             disconnected = false;
             DEBUG_PRINTLN("Wifi reconnected");
           }
         }
         last_con_check = millis();
+      }
+      if((millis() - last_mdns_update) > 1800000) {
+        // Workaround, Setup MDNS responder
+        MDNS.end();             
+        if (!MDNS.begin(myHostname)) {
+          DEBUG_PRINTLN("Error setting up MDNS responder!");
+        } else {
+          DEBUG_PRINTLN("mDNS responder started");
+          // Add service to MDNS-SD
+          MDNS.addService("http", "tcp", 80);
+        }
+        last_mdns_update = millis();
       }
       m_dns_server.processNextRequest();
       m_server.handleClient();
