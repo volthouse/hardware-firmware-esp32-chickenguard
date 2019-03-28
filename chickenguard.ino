@@ -32,7 +32,7 @@
 #define STATE_DEFAULT                0
 #define STATE_WIFI_INIT              1
 #define STATE_WIFI_AP_INIT           2
-#define STATE_WIFI_ACTIVE            3
+#define STATE_WIFI_AP_ACTIVE            3
 #define STATE_WIFI_CLIENT_INIT       4
 #define STATE_WIFI_CLIENT_CONNECTING 5
 #define STATE_WIFI_CLIENT_CONNECTED  6
@@ -144,11 +144,13 @@ void save_settings(void)
   EEPROM.commit();
 }
 
-void init_server(void)
+void init_server(bool initMDNS)
 {
     if(!m_server_initialized) {
-      m_dns_server.setErrorReplyCode(DNSReplyCode::NoError);
-      m_dns_server.start(DNS_PORT, "*", apIP);
+      if(initMDNS) {
+        m_dns_server.setErrorReplyCode(DNSReplyCode::NoError);
+        m_dns_server.start(DNS_PORT, "*", apIP);
+      }
 
       m_server.on("/", handleRoot);
       m_server.on("/setWifi", handleSetWifi);
@@ -382,15 +384,20 @@ void do_wifi(void)
       delay(500);
       DEBUG_PRINT("AP IP address: ");
       DEBUG_PRINTLN(WiFi.softAPIP());
-      init_server();
-      m_app_state = STATE_WIFI_ACTIVE;
+      init_server(true);
+      m_app_state = STATE_WIFI_AP_ACTIVE;
+      break;
+    
+    case STATE_WIFI_AP_ACTIVE:
+      m_dns_server.processNextRequest();
+      m_server.handleClient();
       break;
 
     case STATE_WIFI_CLIENT_INIT:
       WiFi.disconnect();
       WiFi.mode(WIFI_STA);
       WiFi.begin(settings.ssid, settings.pw);
-      init_server();
+      init_server(false);
       m_app_state = STATE_WIFI_CLIENT_CONNECTING;
       break;
 
@@ -444,27 +451,12 @@ void do_wifi(void)
           }
         }
         last_con_check = millis();
-      }
-      if((millis() - last_mdns_update) > 1800000) {
-        // Workaround, Setup MDNS responder
-        MDNS.end();             
-        if (!MDNS.begin(myHostname)) {
-          DEBUG_PRINTLN("Error setting up MDNS responder!");
-        } else {
-          DEBUG_PRINTLN("mDNS responder started");
-          // Add service to MDNS-SD
-          MDNS.addService("http", "tcp", 80);
-        }
-        last_mdns_update = millis();
-      }
-      m_dns_server.processNextRequest();
+      }      
+      
       m_server.handleClient();
       break;
 
-    case STATE_WIFI_ACTIVE:
-      m_dns_server.processNextRequest();
-      m_server.handleClient();
-      break;
+    
   }
 }
 
@@ -562,7 +554,7 @@ void do_display(void)
   switch(m_app_state) {
     case STATE_DEFAULT:
     case STATE_WIFI_CLIENT_CONNECTED:
-    case STATE_WIFI_ACTIVE: {
+    case STATE_WIFI_AP_ACTIVE: {
       if((millis() - timeout) > 1000) {
         char buf[30];
         time_t ltime;
