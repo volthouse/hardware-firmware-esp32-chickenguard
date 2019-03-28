@@ -435,7 +435,7 @@ void do_wifi(void)
             WiFi.disconnect();
             WiFi.mode(WIFI_STA);
             WiFi.begin(settings.ssid, settings.pw);
-
+/*
             // Setup MDNS responder
             MDNS.end();             
             if (!MDNS.begin(myHostname)) {
@@ -445,7 +445,7 @@ void do_wifi(void)
               // Add service to MDNS-SD
               MDNS.addService("http", "tcp", 80);
             }
-            
+  */          
             disconnected = false;
             DEBUG_PRINTLN("Wifi reconnected");
           }
