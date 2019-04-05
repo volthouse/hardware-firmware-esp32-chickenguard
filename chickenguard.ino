@@ -118,6 +118,7 @@ struct {
   int ctrlMode;
   int maxTravelDuration;
   int stopDuration;
+  int maxPwmDuty;
 } settings;
 #pragma pop
 
@@ -134,6 +135,7 @@ void init_settings(void)
     settings.magicNo = MAGIC_NO;
     settings.maxTravelDuration = 2000;
     settings.stopDuration = 0;
+    settings.maxPwmDuty = 80;
     DEBUG_PRINTLN("settings init");
   }
 }
@@ -290,14 +292,13 @@ void handleGetApList(void)
 
 void handleGetSettings(void)
 {
-  char buf[100];
+  char buf[100];  
 
-  // ctrlMode; maxTravelDuration; stopDuration
-
-  sprintf(buf, "%d;%d;%d",
+  sprintf(buf, "%d;%d;%d;%d",
     settings.ctrlMode,
     settings.maxTravelDuration,
-    settings.stopDuration
+    settings.stopDuration,
+    settings.maxPwmDuty
   );
 
   m_server.send(200, "text/plane", buf);
@@ -329,16 +330,18 @@ void handleSetCtrlSettings(void)
 {
   int maxTravelDuration = m_server.arg("maxTravelDuration").toInt();
   int maxStopDuration = m_server.arg("maxStopDuration").toInt();
-
-  settings.maxTravelDuration = maxTravelDuration;
-  settings.stopDuration = maxStopDuration;
-
-  if(settings.maxTravelDuration < 0 || settings.maxTravelDuration > 10000) {
-    settings.maxTravelDuration = 0;
+  int maxPwmDuty = m_server.arg("maxPwmDuty").toInt();  
+  
+  if(maxTravelDuration >= 0 && maxTravelDuration <= 10000) {
+    settings.maxTravelDuration = maxTravelDuration;
   }
 
-  if(settings.stopDuration < 0 || settings.stopDuration > 10000) {
-    settings.stopDuration = 0;
+  if(maxStopDuration >= 0 && maxStopDuration <= 10000) {
+    settings.stopDuration = maxStopDuration;
+  }
+  
+  if(maxPwmDuty >= 0 && maxPwmDuty <= 100) {
+    settings.maxPwmDuty = maxPwmDuty;
   }
 
   save_settings();
@@ -762,7 +765,7 @@ void do_ctrl(void)
     case MOT_CTRL_CLOSE:
       if((millis() - timeout) > 30) {
         mcpwm_set_duty(MCPWM_UNIT_0, MCPWM_TIMER_0, MCPWM_OPR_A, duty);
-        if(duty < 80) {
+        if(duty < settings.maxPwmDuty) {
           duty++;
         }
         timeout = millis();
