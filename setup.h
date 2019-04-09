@@ -106,12 +106,6 @@ button{
     <td><input name="maxStopDuration" id="maxStopDuration" value=""></td>
   </tr>
   <tr>
-    <th>Max PWM Duty</th>
-  </tr>
-  <tr>
-    <td><input name="maxPwmDuty" id="maxPwmDuty" value=""></td>
-  </tr>
-  <tr>
     <td><button type="submit" onclick="setCtrlSettings()">Submit</button></td>
   </tr>
   <tr>
@@ -126,11 +120,11 @@ button{
 
 function init() {
   var element = document.getElementById("mobile-container");
-
+  
   if(!isMobileDevice()) {
     element.classList.add("mobile-container");
   }
-
+  
   fillApList();
   getSettings();
 }
@@ -173,23 +167,20 @@ function getSettings() {
 }
 
 function updateSettings(s) {
-  // // ctrlMode; maxTravelDuration; stopDuration, maxPwmDuty
+  // // ctrlMode; maxTravelDuration; stopDuration
 
   var r = s.split(";");
   var ctrl_mode = parseInt(r[0]);
   var max_travel_duration = parseInt(r[1]);
   var stop_duration = parseInt(r[2]);
-  var max_pwm_duty = parseInt(r[3]);
 
   document.getElementById("maxTravelDuration").value = max_travel_duration;
   document.getElementById("maxStopDuration").value = stop_duration;
-  document.getElementById("maxPwmDuty").value = max_pwm_duty;  
 }
 
 function setCtrlSettings() {
   var s = "maxTravelDuration=" + document.getElementById("maxTravelDuration").value;
   s += "&maxStopDuration=" + document.getElementById("maxStopDuration").value;
-  s += "&maxPwmDuty=" + document.getElementById("maxPwmDuty").value;
 
   var xhttp = new XMLHttpRequest();
   xhttp.open("POST", "setCtrlSettings", true);
