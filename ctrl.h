@@ -189,8 +189,8 @@ function checkDateTimeCtrl() {
 
 setInterval(function() {
 
-  //getState();
-  test();
+  getState();
+  //test();
 
 }, 1000); //update rate ms
 

@@ -438,17 +438,6 @@ void do_wifi(void)
             WiFi.disconnect();
             WiFi.mode(WIFI_STA);
             WiFi.begin(settings.ssid, settings.pw);
-/*
-            // Setup MDNS responder
-            MDNS.end();             
-            if (!MDNS.begin(myHostname)) {
-              DEBUG_PRINTLN("Error setting up MDNS responder!");
-            } else {
-              DEBUG_PRINTLN("mDNS responder started");
-              // Add service to MDNS-SD
-              MDNS.addService("http", "tcp", 80);
-            }
-  */          
             disconnected = false;
             DEBUG_PRINTLN("Wifi reconnected");
           }
@@ -546,6 +535,8 @@ void do_bin_inputs(void)
 void do_display(void)
 {
   static unsigned long timeout = 0;
+  static unsigned long powersave_time = 0;
+  static bool power_save = false;
 
   switch(m_app_state) {
     case STATE_WIFI_AP_INIT:
@@ -553,6 +544,23 @@ void do_display(void)
       return;
       break;
   }
+
+  if(power_save) {
+    bool button_pressed = (m_bin_inputs & (1 << UP_BUTTON_BIT)) ||
+      (m_bin_inputs & (1 << DOWN_BUTTON_BIT)) ||
+      (m_bin_inputs & (1 << STOP_BUTTON_BIT));
+      
+    if((m_ctrl != CTRL_STOP) || button_pressed) {
+      power_save = false;
+      powersave_time = millis();
+      m_u8x8.setPowerSave(false);
+    }    
+  } else {
+    if((millis() - powersave_time) > 30000) {
+      m_u8x8.setPowerSave(true);
+      power_save = true;    
+    }  
+  }  
 
   switch(m_app_state) {
     case STATE_DEFAULT:
@@ -564,9 +572,9 @@ void do_display(void)
 
         // WiFi State
         if (WiFi.status() == WL_CONNECTED) {
-          m_u8x8.drawString(0, 0, "WiFi Connected");
+          m_u8x8.drawString(0, 0, "WiFi Verbunden");
         } else {
-          m_u8x8.drawString(0, 0, "WiFi Discon.  ");
+          m_u8x8.drawString(0, 0, "WiFi n. Verb. ");
         }
 
         // DateTime
@@ -579,9 +587,9 @@ void do_display(void)
         // Control Mode
         memset(buf, 0, sizeof(buf));
         if (m_ctrl_mode == CTRL_MODE_TIME) {
-          strcpy(buf, "Time Control  ");
+          strcpy(buf, "Zeitsteuerung ");
         } else if (m_ctrl_mode == CTRL_MODE_MANUAL) {
-          strcpy(buf, "Manual Control");
+          strcpy(buf, "Manuell       ");
         }
         m_u8x8.drawString(0, 4, buf);
 
